@@ -1,0 +1,169 @@
+import { useNavigate } from "react-router-dom";
+import { pillars, problemDomains } from "../data/appContent";
+import { mockAnalyticsSummary } from "../data/presentationData";
+
+const roleCards = [
+  {
+    title: "For People",
+    description: "Report needs fast, track status live, and discover verified support near you.",
+    action: "Report an issue",
+  },
+  {
+    title: "For Volunteers",
+    description: "Join nearby response work with skill-based assignments and live task visibility.",
+    action: "Join as volunteer",
+  },
+  {
+    title: "For NGOs",
+    description: "Coordinate requests, view critical zones, and allocate resources with confidence.",
+    action: "Open NGO flow",
+  },
+];
+
+function LandingPage() {
+  const navigate = useNavigate();
+
+  return (
+    <div className="v2-landing">
+      <section className="v2-hero">
+        <div className="v2-hero-copy">
+          <p className="v2-kicker">Real-time civic response</p>
+          <h1>When a community needs help, the right NGO should know first.</h1>
+          <p className="v2-hero-body">
+            ResQLink helps people report urgent needs, helps NGOs see where action matters most,
+            and helps volunteers move faster with live assignments.
+          </p>
+          <div className="v2-hero-actions">
+            <button className="v2-primary-button" onClick={() => navigate("/auth")} type="button">
+              Report Emergency
+            </button>
+            <button className="v2-secondary-button" onClick={() => navigate("/auth")} type="button">
+              Register NGO
+            </button>
+          </div>
+          <div className="v2-stat-strip">
+            <div>
+              <strong>{mockAnalyticsSummary.totalUsersHelped.toLocaleString()}+</strong>
+              <span>people helped</span>
+            </div>
+            <div>
+              <strong>{mockAnalyticsSummary.activeNGOs}+</strong>
+              <span>verified NGOs</span>
+            </div>
+            <div>
+              <strong>{mockAnalyticsSummary.activeVolunteers}+</strong>
+              <span>active volunteers</span>
+            </div>
+            <div>
+              <strong>{mockAnalyticsSummary.averageResponseTime}</strong>
+              <span>avg response</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="v2-hero-visual">
+          <div className="v2-radar-card">
+            <div className="v2-radar-grid" />
+            <div className="v2-radar-pulse pulse-a" />
+            <div className="v2-radar-pulse pulse-b" />
+            <div className="v2-radar-pulse pulse-c" />
+            <div className="v2-radar-note note-a">
+              <strong>Critical zone</strong>
+              <span>Food shortage rising</span>
+            </div>
+            <div className="v2-radar-note note-b">
+              <strong>Volunteer ready</strong>
+              <span>2.1 km away</span>
+            </div>
+            <div className="v2-radar-note note-c">
+              <strong>NGO active</strong>
+              <span>Response team deployed</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="v2-domain-section">
+        <div className="v2-section-head">
+          <p className="v2-kicker">Problem domains</p>
+          <h2>One system. Five community needs.</h2>
+        </div>
+        <div className="v2-domain-grid">
+          {problemDomains.map((domain) => (
+            <button
+              className="v2-domain-card"
+              key={domain.slug}
+              onClick={() => navigate(`/domain/${domain.slug}`)}
+              type="button"
+            >
+              <span className="v2-domain-icon">
+                {{
+                  "food-shortage": "🍱",
+                  "senior-help": "👵",
+                  "disaster-relief": "🌊",
+                  "education-support": "📚",
+                  "cleanliness-drive": "♻️",
+                }[domain.slug]}
+              </span>
+              <div>
+                <strong>{domain.title}</strong>
+                <p>{domain.summary}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="v2-foundation-layout">
+        <div className="v2-foundation-panel">
+          <div className="v2-section-head left">
+            <p className="v2-kicker">Why this works</p>
+            <h2>Designed for decisions, not just reporting.</h2>
+          </div>
+          <div className="v2-pillar-list">
+            {pillars.map((pillar, index) => (
+              <article className="v2-pillar-row" key={pillar}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <div>
+                  <strong>{pillar}</strong>
+                  <p>
+                    {pillar === "Centralization" &&
+                      "All reports, campaigns, volunteers, and area signals stay in one place."}
+                    {pillar === "Real-time updates" &&
+                      "Dashboards, assignments, and status changes update instantly."}
+                    {pillar === "Smart matching" &&
+                      "Assignments consider skill, availability, location, and live priority."}
+                    {pillar === "Faster response" &&
+                      "Urgent incidents are highlighted early and routed quickly."}
+                    {pillar === "Better utilisation" &&
+                      "NGOs see where demand is clustering before resources are wasted."}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="v2-role-panel">
+          <div className="v2-section-head left">
+            <p className="v2-kicker">Who it is for</p>
+            <h2>Three actors. One clear flow.</h2>
+          </div>
+          <div className="v2-role-stack">
+            {roleCards.map((card) => (
+              <article className="v2-role-card" key={card.title}>
+                <strong>{card.title}</strong>
+                <p>{card.description}</p>
+                <button className="v2-inline-link" onClick={() => navigate("/auth")} type="button">
+                  {card.action}
+                </button>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export default LandingPage;
