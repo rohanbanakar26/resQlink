@@ -53,7 +53,7 @@ function ProfilePage() {
     ...volunteerDoc,
     photo: volunteerDoc.photo || volunteerDoc.profilePhoto || (volunteerDoc.name || "V").charAt(0),
     skills: volunteerDoc.skills || [],
-    location: volunteerDoc.location?.label || volunteerDoc.location || "Location unavailable",
+    location: volunteerDoc.location?.label || (volunteerDoc.location?.lat ? `${volunteerDoc.location.lat.toFixed(4)}, ${volunteerDoc.location.lng.toFixed(4)}` : "Location unavailable"),
   }), [volunteerDoc]);
 
   const showUserSelf = !isPublicNgo && !isPublicVolunteer && profile?.role === "user";

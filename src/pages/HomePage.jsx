@@ -1,6 +1,7 @@
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { problemDomains } from "../data/appContent";
 import { mockNgoCards } from "../data/presentationData";
 import { db } from "../lib/firebase";
@@ -8,6 +9,7 @@ import { buildPriorityZones } from "../utils/analytics";
 
 function HomePage() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [problems, setProblems] = useState([]);
   const [analytics, setAnalytics] = useState([]);
   const [ngos, setNgos] = useState([]);
@@ -76,43 +78,16 @@ function HomePage() {
               <span>NGOs nearby</span>
             </div>
           </div>
-          <button className="v2-inline-link large" onClick={() => navigate("/ngo")} type="button">
-            Open intelligence dashboard
-          </button>
+          {profile?.role === "ngo" && (
+            <button className="v2-inline-link large" onClick={() => navigate("/ngo")} type="button">
+              Open intelligence dashboard
+            </button>
+          )}
         </div>
       </section>
 
       <section className="v2-home-grid">
-        <div className="v2-surface">
-          <div className="v2-section-head left">
-            <p className="v2-kicker">Choose a category</p>
-            <h2>Start with the need</h2>
-          </div>
-          <div className="v2-category-stack">
-            {problemDomains.map((domain) => (
-              <button
-                className="v2-category-row"
-                key={domain.slug}
-                onClick={() => navigate(`/domain/${domain.slug}`)}
-                type="button"
-              >
-                <span className="v2-category-badge">
-                  {{
-                    "food-shortage": "🍱",
-                    "senior-help": "👵",
-                    "disaster-relief": "🌊",
-                    "education-support": "📚",
-                    "cleanliness-drive": "♻️",
-                  }[domain.slug]}
-                </span>
-                <div>
-                  <strong>{domain.title}</strong>
-                  <p>{domain.summary}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+
 
         <div className="v2-side-stack">
           <div className="v2-surface tight">

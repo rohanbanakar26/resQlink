@@ -83,36 +83,7 @@ function LandingPage() {
         </div>
       </section>
 
-      <section className="v2-domain-section">
-        <div className="v2-section-head">
-          <p className="v2-kicker">Problem domains</p>
-          <h2>One system. Five community needs.</h2>
-        </div>
-        <div className="v2-domain-grid">
-          {problemDomains.map((domain) => (
-            <button
-              className="v2-domain-card"
-              key={domain.slug}
-              onClick={() => navigate(`/domain/${domain.slug}`)}
-              type="button"
-            >
-              <span className="v2-domain-icon">
-                {{
-                  "food-shortage": "🍱",
-                  "senior-help": "👵",
-                  "disaster-relief": "🌊",
-                  "education-support": "📚",
-                  "cleanliness-drive": "♻️",
-                }[domain.slug]}
-              </span>
-              <div>
-                <strong>{domain.title}</strong>
-                <p>{domain.summary}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
+
 
       <section className="v2-foundation-layout">
         <div className="v2-foundation-panel">

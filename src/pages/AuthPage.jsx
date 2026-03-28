@@ -42,7 +42,7 @@ function AuthPage() {
   const navigate = useNavigate();
   const { login, register } = useAuth();
   const [mode, setMode] = useState("choose");
-  const [loginState, setLoginState] = useState({ email: "", password: "" });
+  const [loginState, setLoginState] = useState({ email: "", password: "", role: "user" });
   const [registerState, setRegisterState] = useState(initialRegisterState);
   const [error, setError] = useState("");
   const [ngoStep, setNgoStep] = useState(1);
@@ -123,7 +123,7 @@ function AuthPage() {
             Back
           </button>
           <p className="v2-kicker">Account access</p>
-          <h1>{mode === "login" ? "Welcome back" : mode === "choose" ? "Choose your role" : `Register as ${roleLabel}`}</h1>
+          <h1>{mode === "login" ? `Login as ${roleCards.find(r => r[0] === loginState.role)?.[1] || "Citizen"}` : mode === "choose" ? "Choose your role" : `Register as ${roleLabel}`}</h1>
           <p>
             Keep the flow simple. Register fast, then move directly into reporting, coordination, or volunteer work.
           </p>
@@ -156,6 +156,18 @@ function AuthPage() {
 
         {mode === "login" && (
           <form className="v2-auth-card v2-auth-form" onSubmit={handleLogin}>
+            <div className="v2-auth-role-tabs">
+              {roleCards.map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`v2-auth-tab ${loginState.role === value ? "active" : ""}`}
+                  onClick={() => setLoginState(c => ({...c, role: value}))}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <label>
               Email
               <input

@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { problemDomains } from "../data/appContent";
 
 function AppHeader() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, profile, logout } = useAuth();
+  const { currentUser, profile, loading, logout } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -18,15 +21,54 @@ function AppHeader() {
     !location.pathname.startsWith("/profile/volunteer/");
 
   return (
-    <header className="zip-header">
-      <div className="zip-header-inner">
-        <Link className="zip-brand" to={currentUser ? "/app" : "/"}>
-          <div className="zip-brand-badge">R</div>
-          <div className="zip-brand-copy">
-            <strong>ResQLink</strong>
-            <span>Smart Resource Allocation</span>
+    <>
+      {isMenuOpen && (
+        <div className="zip-overlay" onClick={() => setIsMenuOpen(false)} aria-hidden="true" />
+      )}
+      
+      <div className={`zip-side-drawer ${isMenuOpen ? "open" : ""}`}>
+        <div className="zip-drawer-header">
+          <span className="zip-drawer-title">Community Needs</span>
+          <button className="zip-close-button" onClick={() => setIsMenuOpen(false)} type="button">
+            ✕
+          </button>
+        </div>
+        <nav className="zip-drawer-nav">
+          {problemDomains.map((domain) => (
+            <button
+              key={domain.slug}
+              className="zip-drawer-link"
+              onClick={() => {
+                setIsMenuOpen(false);
+                navigate(`/domain/${domain.slug}`);
+              }}
+              type="button"
+            >
+              {domain.shortTitle}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <header className="zip-header">
+        <div className="zip-header-inner">
+          <div className="zip-header-left">
+            <button 
+              className="zip-hamburger-button" 
+              onClick={() => setIsMenuOpen(true)}
+              type="button"
+              aria-label="Open menu"
+            >
+              ☰
+            </button>
+            <Link className="zip-brand" to={currentUser ? "/app" : "/"}>
+              <div className="zip-brand-badge">R</div>
+              <div className="zip-brand-copy">
+                <strong>ResQLink</strong>
+                <span>Smart Resource Allocation</span>
+              </div>
+            </Link>
           </div>
-        </Link>
 
         <div className="zip-header-actions">
           <button className="zip-circle-button" onClick={() => navigate("/search")} type="button">
@@ -38,7 +80,13 @@ function AppHeader() {
             </button>
           )}
 
-          {currentUser ? (
+          {loading ? (
+            <div className="zip-user-menu" style={{ opacity: 0 }}>
+              <button className="zip-profile-button" type="button" disabled>
+                <span className="zip-user-avatar" />
+              </button>
+            </div>
+          ) : currentUser ? (
             <div className="zip-user-menu">
               <button className="zip-profile-button" onClick={() => navigate("/profile")} type="button">
                 <span className="zip-user-avatar">{(profile?.name || "U").charAt(0)}</span>
@@ -73,6 +121,7 @@ function AppHeader() {
         </div>
       )}
     </header>
+    </>
   );
 }
 
