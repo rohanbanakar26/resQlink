@@ -62,28 +62,39 @@ function LandingPage() {
         </div>
 
         <div className="v2-hero-visual">
-          <div className="v2-radar-card">
-            <div className="v2-radar-grid" />
-            <div className="v2-radar-pulse pulse-a" />
-            <div className="v2-radar-pulse pulse-b" />
-            <div className="v2-radar-pulse pulse-c" />
-            <div className="v2-radar-note note-a">
-              <strong>Critical zone</strong>
-              <span>Food shortage rising</span>
-            </div>
-            <div className="v2-radar-note note-b">
-              <strong>Volunteer ready</strong>
-              <span>2.1 km away</span>
-            </div>
-            <div className="v2-radar-note note-c">
-              <strong>NGO active</strong>
-              <span>Response team deployed</span>
-            </div>
-          </div>
+          <img src="/hero_illo.png" alt="Civic tech community connection" className="v2-hero-image" />
         </div>
       </section>
 
+      <section className="v2-reference-features">
+        <div className="v2-ref-card">
+          <span className="v2-ref-icon">🛡️</span>
+          <strong>Secure Authentication</strong>
+          <p>OTP-verified phone numbers for all users</p>
+        </div>
+        
+        <div className="v2-ref-card">
+          <span className="v2-ref-icon">⭐</span>
+          <strong>Trust Score System</strong>
+          <p>Dynamic scores updated after every task completion</p>
+        </div>
 
+        <button className="v2-ref-button" onClick={() => navigate("/auth")} type="button">
+          Join ResQLink Today →
+        </button>
+
+        <div className="v2-ref-footer">
+          <div className="v2-ref-brand">
+            <span className="v2-ref-brand-icon">R</span>
+            ResQLink
+          </div>
+          <p>Smart Resource Allocation Platform · support@resqlink.in</p>
+          <div className="v2-ref-links">
+            <button onClick={() => navigate("/about")} type="button">About</button>
+            <button onClick={() => navigate("/auth")} type="button">Login</button>
+          </div>
+        </div>
+      </section>
 
       <section className="v2-foundation-layout">
         <div className="v2-foundation-panel">

@@ -56,15 +56,7 @@ function AppHeader() {
 
       <header className="zip-header">
         <div className="zip-header-inner">
-          <div className="zip-header-left">
-            <button 
-              className="zip-hamburger-button" 
-              onClick={() => setIsMenuOpen(true)}
-              type="button"
-              aria-label="Open menu"
-            >
-              ☰
-            </button>
+          <div className="zip-header-brand">
             <Link className="zip-brand" to={currentUser ? "/app" : "/"}>
               <div className="zip-brand-badge">R</div>
               <div className="zip-brand-copy">
@@ -113,6 +105,15 @@ function AppHeader() {
               </button>
             </div>
           )}
+
+          <button 
+            className="zip-hamburger-button" 
+            onClick={() => setIsMenuOpen(true)}
+            type="button"
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
         </div>
       </div>
 

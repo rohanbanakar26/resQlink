@@ -47,14 +47,21 @@ function HomePage() {
           <p>
             Report a need, explore nearby NGOs, or move directly to the most critical area right now.
           </p>
-          <div className="v2-home-actions">
-            <button className="v2-primary-button" onClick={() => navigate("/report")} type="button">
-              Dispatch Emergency
-            </button>
-            <button className="v2-secondary-button" onClick={() => navigate("/search")} type="button">
-              Find NGOs
-            </button>
+          <div 
+            className="v2-emergency-card" 
+            onClick={() => navigate("/report")}
+            role="button"
+            tabIndex={0}
+          >
+            <div className="v2-emergency-content">
+              <strong>Report an Emergency</strong>
+              <p>Critical response needed? Dispatch support instantly.</p>
+            </div>
+            <div className="v2-emergency-arrow">→</div>
           </div>
+          <button className="v2-secondary-button full-width-button" onClick={() => navigate("/search")} type="button" style={{width: '100%'}}>
+            Browse Verified NGOs
+          </button>
         </div>
 
         <div className="v2-home-command">
