@@ -1,258 +1,188 @@
-import {
-  addDoc,
-  collection,
-  getDocs,
-  serverTimestamp,
-  updateDoc,
-  doc,
-} from "firebase/firestore";
-import { useEffect, useState } from "react";
-import { db } from "../lib/firebase";
-import { getCurrentPosition } from "../utils/geo";
-import {
-  calculateProblemPriority,
-  getAnalyticsSnapshotForLocation,
-  upsertAnalyticsForProblem,
-} from "../utils/analytics";
-import { findBestVolunteer } from "../utils/matching";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { REQUEST_CATEGORIES, URGENCY_OPTIONS, getCategoryMeta } from "../data/system";
+import { useAppData } from "../context/AppDataContext";
+import { useAuth } from "../context/AuthContext";
 
-const defaultForm = {
-  category: "food-shortage",
-  urgency: "critical",
-  description: "",
-};
-
-function EmergencyForm({ domain }) {
-  const [form, setForm] = useState({
-    ...defaultForm,
-    category: domain?.category || defaultForm.category,
-  });
-  const [location, setLocation] = useState(null);
-  const [message, setMessage] = useState("");
+function EmergencyForm({ open, onClose, initialCategory = "medical" }) {
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const { createEmergency, location, locationError } = useAppData();
+  const [step, setStep] = useState(1);
+  const [category, setCategory] = useState(initialCategory);
+  const [urgency, setUrgency] = useState("critical");
+  const [description, setDescription] = useState("");
+  const [photoFile, setPhotoFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [extras, setExtras] = useState({});
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    setForm((current) => ({
-      ...current,
-      category: domain?.category || defaultForm.category,
-    }));
-    setExtras({});
-  }, [domain]);
-
-  useEffect(() => {
-    getCurrentPosition()
-      .then((coords) => setLocation(coords))
-      .catch((error) => {
-        setMessage(error.message || "Unable to read live location.");
-        setLocation(null);
-      });
-  }, []);
-
-  const handleVoiceInput = () => {
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!Recognition) {
-      setMessage("Voice input is not supported in this browser.");
+    if (!open) {
       return;
     }
 
-    const recognition = new Recognition();
-    recognition.lang = "en-IN";
-    recognition.start();
-    setVoiceEnabled(true);
+    setCategory(initialCategory);
+    setStep(1);
+    setError("");
+  }, [initialCategory, open]);
 
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setForm((current) => ({ ...current, description: transcript }));
-      setVoiceEnabled(false);
-    };
+  const selectedCategory = useMemo(() => getCategoryMeta(category), [category]);
 
-    recognition.onerror = () => {
-      setVoiceEnabled(false);
-    };
-  };
+  if (!open) {
+    return null;
+  }
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (!currentUser) {
+      navigate("/auth");
+      return;
+    }
+
     setSubmitting(true);
-    setMessage("");
+    setError("");
 
     try {
-      const liveLocation = await getCurrentPosition();
-      const currentAnalytics = await getAnalyticsSnapshotForLocation(liveLocation);
-      const projectedFrequency = (currentAnalytics.frequency ?? 0) + 1;
-      const projectedRecentReports =
-        currentAnalytics.trend === "rising" ? 3 : currentAnalytics.frequency ? 2 : 1;
-      const priorityScore = calculateProblemPriority({
-        urgency: form.urgency,
-        category: form.category,
-        frequency: projectedFrequency,
-        recentReports: projectedRecentReports,
+      await createEmergency({
+        category,
+        urgency,
+        description,
+        photoFile,
       });
-
-      const problemRef = await addDoc(collection(db, "problems"), {
-        category: form.category,
-        urgency: form.urgency,
-        location: liveLocation,
-        description: form.description.trim(),
-        extraDetails: extras,
-        status: "pending",
-        volunteerId: "",
-        priorityScore,
-        timestamp: serverTimestamp(),
-      });
-      await upsertAnalyticsForProblem({
-        category: form.category,
-        urgency: form.urgency,
-        location: liveLocation,
-      });
-
-      const volunteerSnapshot = await getDocs(collection(db, "volunteers"));
-      const volunteers = volunteerSnapshot.docs.map((volunteer) => ({
-        id: volunteer.id,
-        ...volunteer.data(),
-      }));
-      const bestVolunteer = findBestVolunteer(
-        {
-          category: form.category,
-          urgency: form.urgency,
-          location: liveLocation,
-          priorityScore,
-        },
-        volunteers,
-      );
-
-      await updateDoc(doc(db, "problems", problemRef.id), {
-        analyticsSynced: true,
-        status: bestVolunteer ? "assigned" : "pending",
-        volunteerId: bestVolunteer?.id ?? "",
-      });
-      setMessage(
-        bestVolunteer
-          ? `Report captured, prioritized, and assigned to ${bestVolunteer.name}.`
-          : "Problem captured and prioritized. No available volunteer matched instantly.",
-      );
-
-      setForm({
-        ...defaultForm,
-        category: domain?.category || defaultForm.category,
-      });
-      setExtras({});
-    } catch (error) {
-      setMessage(error.message || "Unable to submit emergency.");
+      onClose();
+      navigate("/requests");
+    } catch (submitError) {
+      setError(submitError.message || "Unable to send the emergency request.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <form className="panel emergency-form" onSubmit={handleSubmit}>
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">{domain ? "Domain request" : "Emergency intake"}</p>
-          <h2>{domain ? domain.cta : "File a new incident"}</h2>
+    <div className="emergency-overlay" role="presentation">
+      <div className="emergency-sheet">
+        <div className="sheet-head">
+          <div>
+            <span className="section-label emergency-label">Emergency dispatch</span>
+            <h2>Report help needed in under 10 seconds.</h2>
+          </div>
+          <button className="ghost-button" onClick={onClose} type="button">
+            Close
+          </button>
         </div>
-        <button className="voice-button" onClick={handleVoiceInput} type="button">
-          {voiceEnabled ? "Listening..." : "Voice note"}
-        </button>
-      </div>
 
-      <div className="form-grid">
-        <label>
-          Category
-          <select
-            disabled={Boolean(domain)}
-            onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-            value={form.category}
-          >
-            <option value="food-shortage">Food shortage</option>
-            <option value="senior-help">Senior citizen daily help</option>
-            <option value="disaster-relief">Disaster relief coordination</option>
-            <option value="education-support">Education support drives</option>
-            <option value="cleanliness-drive">City cleanliness drives</option>
-          </select>
-        </label>
+        <form className="sheet-form" onSubmit={handleSubmit}>
+          <div className="stepper">
+            <span className={step >= 1 ? "active" : ""}>1. Category</span>
+            <span className={step >= 2 ? "active" : ""}>2. Details</span>
+            <span className={step >= 3 ? "active" : ""}>3. Send</span>
+          </div>
 
-        <label>
-          Urgency
-          <select
-            onChange={(event) => setForm((current) => ({ ...current, urgency: event.target.value }))}
-            value={form.urgency}
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
-          </select>
-        </label>
+          {step === 1 ? (
+            <div className="category-grid">
+              {REQUEST_CATEGORIES.map((item) => (
+                <button
+                  className={`category-card ${category === item.id ? "active" : ""}`}
+                  key={item.id}
+                  onClick={() => setCategory(item.id)}
+                  type="button"
+                >
+                  <span className="category-emoji">{item.emoji}</span>
+                  <strong>{item.label}</strong>
+                  <p>{item.summary}</p>
+                </button>
+              ))}
+            </div>
+          ) : null}
 
-        <label className="full-span">
-          Live GPS
-          <input
-            disabled
-            placeholder="Waiting for current location..."
-            value={
-              location
-                ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
-                : "GPS required for dispatch"
-            }
-          />
-        </label>
+          {step === 2 ? (
+            <div className="form-grid">
+              <label>
+                Urgency
+                <select onChange={(event) => setUrgency(event.target.value)} value={urgency}>
+                  {URGENCY_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                GPS location
+                <input
+                  disabled
+                  value={
+                    location
+                      ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+                      : "Waiting for GPS permission"
+                  }
+                />
+              </label>
+              <label className="full-span">
+                What happened?
+                <textarea
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder={`Describe the ${selectedCategory.label.toLowerCase()} need briefly.`}
+                  rows="4"
+                  value={description}
+                />
+              </label>
+              <label className="full-span">
+                Optional photo
+                <input
+                  accept="image/*"
+                  onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)}
+                  type="file"
+                />
+              </label>
+            </div>
+          ) : null}
 
-        <label className="full-span">
-          Description
-          <textarea
-            onChange={(event) =>
-              setForm((current) => ({ ...current, description: event.target.value }))
-            }
-            placeholder="Describe the situation briefly."
-            rows="4"
-            value={form.description}
-          />
-        </label>
+          {step === 3 ? (
+            <div className="review-card">
+              <div>
+                <span className="section-label">Category</span>
+                <strong>{selectedCategory.label}</strong>
+              </div>
+              <div>
+                <span className="section-label">Urgency</span>
+                <strong>{urgency}</strong>
+              </div>
+              <div>
+                <span className="section-label">Location</span>
+                <strong>
+                  {location ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : "GPS pending"}
+                </strong>
+              </div>
+              <p>{description || "No description added."}</p>
+            </div>
+          ) : null}
 
-        {domain?.fields?.map((field) => (
-          <label className="full-span" key={field.id}>
-            {field.label}
-            {field.type === "select" ? (
-              <select
-                onChange={(event) =>
-                  setExtras((current) => ({ ...current, [field.id]: event.target.value }))
-                }
-                value={extras[field.id] || ""}
-              >
-                <option value="">Select</option>
-                {field.options.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+          {(error || locationError) && <div className="form-alert">{error || locationError}</div>}
+
+          <div className="sheet-actions">
+            {step > 1 ? (
+              <button className="ghost-button" onClick={() => setStep((current) => current - 1)} type="button">
+                Back
+              </button>
             ) : (
-              <input
-                onChange={(event) =>
-                  setExtras((current) => ({ ...current, [field.id]: event.target.value }))
-                }
-                type={field.type}
-                value={extras[field.id] || ""}
-              />
+              <span />
             )}
-          </label>
-        ))}
+
+            {step < 3 ? (
+              <button className="primary-button" onClick={() => setStep((current) => current + 1)} type="button">
+                Continue
+              </button>
+            ) : (
+              <button className="danger-button" disabled={submitting || !location} type="submit">
+                {submitting ? "Dispatching..." : "Send emergency"}
+              </button>
+            )}
+          </div>
+        </form>
       </div>
-
-      <button
-        className="danger-button large-button"
-        disabled={submitting || !location}
-        type="submit"
-      >
-        {submitting ? "Submitting..." : domain?.cta || "Dispatch Emergency"}
-      </button>
-
-      {message && <p className="form-message">{message}</p>}
-    </form>
+    </div>
   );
 }
 

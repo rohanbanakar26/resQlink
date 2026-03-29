@@ -1,11 +1,11 @@
 import { NavLink, useLocation } from "react-router-dom";
 
 const items = [
-  { to: "/app", label: "Home", icon: "⌂" },
-  { to: "/search", label: "Search", icon: "⌕" },
-  { to: "/news", label: "News", icon: "◫" },
-  { to: "/about", label: "About", icon: "i" },
-  { to: "/profile", label: "Profile", icon: "◉" },
+  { to: "/emergency", label: "Emergency", icon: "🚨" },
+  { to: "/requests", label: "Requests", icon: "📶" },
+  { to: "/map", label: "Map", icon: "🗺️" },
+  { to: "/network", label: "Network", icon: "🤝" },
+  { to: "/profile", label: "Profile", icon: "👤" },
 ];
 
 function BottomNav() {
@@ -16,19 +16,17 @@ function BottomNav() {
   }
 
   return (
-    <nav className="zip-bottom-nav">
-      <div className="zip-bottom-nav-inner">
-        {items.map((item) => (
-          <NavLink className="zip-bottom-link" key={item.to} to={item.to}>
-            {({ isActive }) => (
-              <>
-                <span className={isActive ? "zip-bottom-icon active" : "zip-bottom-icon"}>{item.icon}</span>
-                <span className={isActive ? "zip-bottom-label active" : "zip-bottom-label"}>{item.label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </div>
+    <nav className="bottom-nav">
+      {items.map((item) => (
+        <NavLink className="bottom-link" key={item.to} to={item.to}>
+          {({ isActive }) => (
+            <>
+              <span className={`bottom-icon ${isActive ? "active" : ""}`}>{item.icon}</span>
+              <span className={`bottom-label ${isActive ? "active" : ""}`}>{item.label}</span>
+            </>
+          )}
+        </NavLink>
+      ))}
     </nav>
   );
 }

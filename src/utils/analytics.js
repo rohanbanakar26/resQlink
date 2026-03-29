@@ -1,10 +1,4 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-} from "firebase/firestore";
+import { collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
 const urgencyWeights = {
@@ -15,12 +9,22 @@ const urgencyWeights = {
 };
 
 const severityWeights = {
-  "education-support": 2,
-  "food-shortage": 3,
-  "senior-help": 2,
-  "disaster-relief": 4,
-  "cleanliness-drive": 1,
+  food: 3,
+  disaster: 5,
+  medical: 4,
+  shelter: 4,
+  senior: 2,
+  education: 2,
+  sanitation: 1,
 };
+
+export function getUrgencyValue(urgency) {
+  return urgencyWeights[urgency] ?? 1;
+}
+
+export function getSeverityValue(category) {
+  return severityWeights[category] ?? 2;
+}
 
 export function getZoneKey(location) {
   if (location?.lat == null || location?.lng == null) {
@@ -41,139 +45,96 @@ export function getZoneCenter(location) {
   };
 }
 
-export function getUrgencyValue(urgency) {
-  return urgencyWeights[urgency] ?? 1;
+export function calculatePriorityScore({
+  averageUrgency = 1,
+  totalReports = 1,
+  recentReports = 1,
+  severity = 1,
+}) {
+  return averageUrgency * 40 + totalReports * 30 + recentReports * 20 + severity * 10;
 }
 
-export function getSeverityValue(category) {
-  return severityWeights[category] ?? 2;
-}
+export function deriveTrend(previousTotal, nextTotal) {
+  if (nextTotal - previousTotal >= 3) {
+    return "surging";
+  }
 
-export function deriveTrend(frequency, recentReports) {
-  if (recentReports >= 3 || frequency >= 8) {
+  if (nextTotal > previousTotal) {
     return "rising";
   }
 
-  if (recentReports >= 1 || frequency >= 3) {
-    return "watch";
-  }
-
-  return "stable";
-}
-
-export function calculatePriorityScore({
-  urgencyScore,
-  frequency,
-  recentReports,
-  severity,
-}) {
-  return urgencyScore * 40 + frequency * 30 + recentReports * 20 + severity * 10;
-}
-
-export function calculateProblemPriority({
-  urgency,
-  category,
-  frequency,
-  recentReports,
-}) {
-  return calculatePriorityScore({
-    urgencyScore: getUrgencyValue(urgency),
-    frequency,
-    recentReports,
-    severity: getSeverityValue(category),
-  });
-}
-
-export function buildPriorityZones(analyticsDocs, problems) {
-  const now = Date.now();
-  const oneDayMs = 24 * 60 * 60 * 1000;
-  const problemCountsByZone = problems.reduce((accumulator, problem) => {
-    const zoneKey = getZoneKey(problem.location);
-    const timestampMs = problem.timestamp?.seconds
-      ? problem.timestamp.seconds * 1000
-      : 0;
-    const isRecent = now - timestampMs <= oneDayMs;
-
-    if (!accumulator[zoneKey]) {
-      accumulator[zoneKey] = {
-        recentReports: 0,
-        severity: 0,
-      };
-    }
-
-    if (isRecent) {
-      accumulator[zoneKey].recentReports += 1;
-    }
-
-    accumulator[zoneKey].severity = Math.max(
-      accumulator[zoneKey].severity,
-      getSeverityValue(problem.category),
-    );
-
-    return accumulator;
-  }, {});
-
-  return analyticsDocs
-    .map((zone) => {
-      const derived = problemCountsByZone[zone.id] ?? { recentReports: 0, severity: 1 };
-      const frequency = zone.frequency ?? 0;
-      const urgencyScore = zone.urgencyScore ?? 0;
-      return {
-        ...zone,
-        recentReports: derived.recentReports,
-        severity: derived.severity,
-        trend: deriveTrend(frequency, derived.recentReports),
-        priorityScore: calculatePriorityScore({
-          urgencyScore,
-          frequency,
-          recentReports: derived.recentReports,
-          severity: derived.severity,
-        }),
-      };
-    })
-    .sort((left, right) => right.priorityScore - left.priorityScore);
-}
-
-export async function upsertAnalyticsForProblem(problem) {
-  const zoneKey = getZoneKey(problem.location);
-  const analyticsRef = doc(collection(db, "analytics"), zoneKey);
-  const analyticsDoc = await getDoc(analyticsRef);
-  const current = analyticsDoc.exists() ? analyticsDoc.data() : null;
-  const nextFrequency = (current?.frequency ?? 0) + 1;
-  const nextUrgencyScore =
-    (current?.urgencyScore ?? 0) + getUrgencyValue(problem.urgency);
-  const nextTrend = deriveTrend(nextFrequency, 1);
-
-  await setDoc(
-    analyticsRef,
-    {
-      location: getZoneCenter(problem.location),
-      frequency: nextFrequency,
-      urgencyScore: nextUrgencyScore,
-      trend: nextTrend,
-      lastUpdated: serverTimestamp(),
-    },
-    { merge: true },
-  );
+  return "steady";
 }
 
 export async function getAnalyticsSnapshotForLocation(location) {
   const zoneKey = getZoneKey(location);
-  const analyticsRef = doc(collection(db, "analytics"), zoneKey);
-  const analyticsDoc = await getDoc(analyticsRef);
+  const snapshot = await getDoc(doc(db, "analytics", zoneKey));
 
-  if (!analyticsDoc.exists()) {
+  if (!snapshot.exists()) {
     return {
       id: zoneKey,
       location: getZoneCenter(location),
-      frequency: 0,
-      urgencyScore: 0,
-      trend: "stable",
+      totalReports: 0,
+      avgUrgency: 0,
+      priorityScore: 0,
+      trend: "steady",
+      categories: {},
     };
   }
 
-  return {
-    id: analyticsDoc.id,
-    ...analyticsDoc.data(),
-  };
+  return { id: snapshot.id, ...snapshot.data() };
+}
+
+export async function upsertAnalyticsForRequest(request) {
+  const zoneKey = getZoneKey(request.location);
+  const analyticsRef = doc(collection(db, "analytics"), zoneKey);
+  const current = await getAnalyticsSnapshotForLocation(request.location);
+  const nextTotal = (current.totalReports ?? 0) + 1;
+  const currentUrgencyValue = getUrgencyValue(request.urgency);
+  const nextAvgUrgency =
+    ((current.avgUrgency ?? 0) * (current.totalReports ?? 0) + currentUrgencyValue) / nextTotal;
+  const nextRecentReports = Math.min((current.recentReports ?? 0) + 1, nextTotal);
+  const priorityScore = calculatePriorityScore({
+    averageUrgency: nextAvgUrgency,
+    totalReports: nextTotal,
+    recentReports: nextRecentReports,
+    severity: getSeverityValue(request.category),
+  });
+
+  await setDoc(
+    analyticsRef,
+    {
+      area: zoneKey,
+      location: getZoneCenter(request.location),
+      totalReports: nextTotal,
+      avgUrgency: Number(nextAvgUrgency.toFixed(2)),
+      recentReports: nextRecentReports,
+      problemType: request.category,
+      priorityScore,
+      trend: deriveTrend(current.totalReports ?? 0, nextTotal),
+      categories: {
+        ...(current.categories ?? {}),
+        [request.category]: ((current.categories ?? {})[request.category] ?? 0) + 1,
+      },
+      lastUpdated: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return priorityScore;
+}
+
+export function buildPriorityZones(analyticsDocs = [], problems = []) {
+  const activeByZone = problems.reduce((accumulator, problem) => {
+    const zoneKey = getZoneKey(problem.location);
+    accumulator[zoneKey] = (accumulator[zoneKey] ?? 0) + (problem.status === "Completed" ? 0 : 1);
+    return accumulator;
+  }, {});
+
+  return analyticsDocs
+    .map((zone) => ({
+      ...zone,
+      activeRequests: activeByZone[zone.id] ?? 0,
+    }))
+    .sort((left, right) => (right.priorityScore ?? 0) - (left.priorityScore ?? 0));
 }

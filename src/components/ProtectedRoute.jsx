@@ -5,15 +5,15 @@ function ProtectedRoute({ allowedRoles, children }) {
   const { currentUser, profile, loading } = useAuth();
 
   if (loading) {
-    return <section className="panel">Loading...</section>;
+    return <section className="page-skeleton">Loading live workspace...</section>;
   }
 
   if (!currentUser) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate replace to="/auth" />;
   }
 
-  if (!allowedRoles.includes(profile?.role)) {
-    return <Navigate to="/" replace />;
+  if (allowedRoles && !allowedRoles.includes(profile?.role)) {
+    return <Navigate replace to="/emergency" />;
   }
 
   return children;

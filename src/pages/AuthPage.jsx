@@ -1,173 +1,125 @@
-import { doc, getDoc } from "firebase/firestore";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { db } from "../lib/firebase";
+import { REQUEST_CATEGORIES, ROLE_OPTIONS } from "../data/system";
 import { getCurrentPosition } from "../utils/geo";
 
-const initialRegisterState = {
-  name: "",
-  phone: "",
-  otp: "",
+const defaultRegister = {
+  role: "citizen",
+  fullName: "",
   email: "",
+  phone: "",
   password: "",
   confirmPassword: "",
-  role: "user",
-  profilePhoto: "",
-  skills: "Delivery, Medical Help",
-  available: true,
-  preferredDistanceRange: "5 km",
-  categoryTags: "food-shortage, disaster-relief",
-  previousActivities: "",
+  preferredDistanceKm: 10,
   vehicleAvailability: "none",
-  hybridMode: true,
+  skills: "",
+  categoryTags: "food,medical,disaster",
   ngoName: "",
+  organisationType: "",
   registrationNumber: "",
-  contactPerson: "",
+  coverageLabel: "",
   officeAddress: "",
-  registrationCertificate: "",
-  taxProof: "",
-  officeProof: "",
-  authorizedId: "",
-  officePhoto: "",
 };
-
-const roleCards = [
-  ["user", "Citizen", "Report needs and track support"],
-  ["volunteer", "Volunteer", "Join nearby response work"],
-  ["ngo", "NGO", "Coordinate requests and resources"],
-];
 
 function AuthPage() {
   const navigate = useNavigate();
   const { login, register } = useAuth();
   const [mode, setMode] = useState("choose");
-  const [loginState, setLoginState] = useState({ email: "", password: "", role: "user" });
-  const [registerState, setRegisterState] = useState(initialRegisterState);
+  const [loginState, setLoginState] = useState({ email: "", password: "" });
+  const [registerState, setRegisterState] = useState(defaultRegister);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [ngoStep, setNgoStep] = useState(1);
-  const [showPassword, setShowPassword] = useState(false);
 
-  const isNgo = registerState.role === "ngo";
-  const roleLabel = useMemo(
-    () => roleCards.find(([value]) => value === registerState.role)?.[1] || "Citizen",
+  const roleMeta = useMemo(
+    () => ROLE_OPTIONS.find((item) => item.id === registerState.role) ?? ROLE_OPTIONS[0],
     [registerState.role],
   );
 
   const handleLogin = async (event) => {
     event.preventDefault();
+    setSubmitting(true);
     setError("");
+
     try {
-      const credentials = await login(loginState.email, loginState.password);
-      const userDoc = await getDoc(doc(db, "users", credentials.user.uid));
-      const role = userDoc.exists() ? userDoc.data().role : null;
-      navigate(role === "ngo" ? "/ngo" : role === "volunteer" ? "/volunteer" : "/app");
+      await login(loginState.email, loginState.password);
+      navigate("/emergency");
     } catch (authError) {
-      setError(authError.message);
+      setError(authError.message || "Unable to sign in.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleRegister = async (event) => {
     event.preventDefault();
+    setSubmitting(true);
     setError("");
+
     try {
-      if (isNgo && ngoStep < 3) {
-        setNgoStep((current) => current + 1);
-        return;
-      }
       if (registerState.password !== registerState.confirmPassword) {
-        setError("Password and confirm password do not match.");
-        return;
+        throw new Error("Passwords do not match.");
       }
 
-      const location = await getCurrentPosition();
-      const user = await register({
+      const location = await getCurrentPosition().catch(() => null);
+      await register({
         ...registerState,
         location,
         skills: registerState.skills
           .split(",")
-          .map((skill) => skill.trim().toLowerCase())
+          .map((item) => item.trim().toLowerCase())
           .filter(Boolean),
         categoryTags: registerState.categoryTags
           .split(",")
-          .map((tag) => tag.trim().toLowerCase())
+          .map((item) => item.trim().toLowerCase())
           .filter(Boolean),
-        documentLinks: {
-          registrationCertificate: registerState.registrationCertificate,
-          taxProof: registerState.taxProof,
-          officeProof: registerState.officeProof,
-          authorizedId: registerState.authorizedId,
-        },
-        officialEmailDomain: !registerState.email.endsWith("@gmail.com"),
-        adminReviewStatus: "pending",
       });
-      navigate(
-        registerState.role === "ngo"
-          ? "/ngo"
-          : registerState.role === "volunteer"
-            ? "/volunteer"
-            : user
-              ? "/app"
-              : "/",
-      );
+      navigate("/emergency");
     } catch (authError) {
-      setError(authError.message);
+      setError(authError.message || "Unable to create your account.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="v2-auth-page">
-      <section className="v2-auth-shell">
-        <div className="v2-auth-head">
-          <button className="v2-inline-link" onClick={() => navigate("/")} type="button">
-            Back
-          </button>
-          <p className="v2-kicker">Account access</p>
-          <h1>{mode === "login" ? `Login as ${roleCards.find(r => r[0] === loginState.role)?.[1] || "Citizen"}` : mode === "choose" ? "Choose your role" : `Register as ${roleLabel}`}</h1>
+    <div className="auth-page">
+      <section className="auth-shell">
+        <div className="auth-copy">
+          <span className="section-label">Who are you?</span>
+          <h1>Start with the role you play in the response network.</h1>
           <p>
-            Keep the flow simple. Register fast, then move directly into reporting, coordination, or volunteer work.
+            ResQLink changes the interface and live data around what you need to do next.
           </p>
         </div>
 
-        {mode === "choose" && (
-          <div className="v2-auth-card">
-            <div className="v2-auth-role-grid">
-              {roleCards.map(([value, label, description]) => (
+        {mode === "choose" ? (
+          <div className="auth-card">
+            <div className="role-grid">
+              {ROLE_OPTIONS.map((role) => (
                 <button
-                  className="v2-auth-role"
-                  key={value}
+                  className="role-option"
+                  key={role.id}
                   onClick={() => {
-                    setRegisterState((current) => ({ ...current, role: value }));
-                    setNgoStep(1);
+                    setRegisterState((current) => ({ ...current, role: role.id }));
                     setMode("register");
                   }}
                   type="button"
                 >
-                  <strong>{label}</strong>
-                  <p>{description}</p>
+                  <strong>{role.label}</strong>
+                  <p>{role.description}</p>
                 </button>
               ))}
             </div>
-            <button className="v2-secondary-button full-width-button" onClick={() => setMode("login")} type="button">
+
+            <button className="ghost-button full-width" onClick={() => setMode("login")} type="button">
               I already have an account
             </button>
           </div>
-        )}
+        ) : null}
 
-        {mode === "login" && (
-          <form className="v2-auth-card v2-auth-form" onSubmit={handleLogin}>
-            <div className="v2-auth-role-tabs">
-              {roleCards.map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`v2-auth-tab ${loginState.role === value ? "active" : ""}`}
-                  onClick={() => setLoginState(c => ({...c, role: value}))}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+        {mode === "login" ? (
+          <form className="auth-card form-stack" onSubmit={handleLogin}>
             <label>
               Email
               <input
@@ -178,138 +130,194 @@ function AuthPage() {
             </label>
             <label>
               Password
-              <div className="v2-password-row">
-                <input
-                  onChange={(event) => setLoginState((current) => ({ ...current, password: event.target.value }))}
-                  type={showPassword ? "text" : "password"}
-                  value={loginState.password}
-                />
-                <button className="v2-inline-link" onClick={() => setShowPassword((current) => !current)} type="button">
-                  {showPassword ? "Hide" : "Show"}
-                </button>
-              </div>
+              <input
+                onChange={(event) => setLoginState((current) => ({ ...current, password: event.target.value }))}
+                type="password"
+                value={loginState.password}
+              />
             </label>
-            <button className="v2-primary-button full-width-button" type="submit">
-              Sign In
+
+            {error ? <div className="form-alert">{error}</div> : null}
+
+            <button className="primary-button full-width" disabled={submitting} type="submit">
+              {submitting ? "Signing in..." : "Sign in"}
             </button>
-            <button className="v2-secondary-button full-width-button" onClick={() => setMode("choose")} type="button">
-              Create account instead
+            <button className="ghost-button full-width" onClick={() => setMode("choose")} type="button">
+              Back
             </button>
-            {error && <div className="form-message">{error}</div>}
           </form>
-        )}
+        ) : null}
 
-        {mode === "register" && (
-          <form className="v2-auth-card v2-auth-form" onSubmit={handleRegister}>
-            {isNgo && (
-              <div className="v2-step-strip">
-                {[1, 2, 3].map((step) => (
-                  <span className={step <= ngoStep ? "active" : ""} key={step} />
-                ))}
-              </div>
-            )}
+        {mode === "register" ? (
+          <form className="auth-card form-stack" onSubmit={handleRegister}>
+            <div className="selected-role">
+              <strong>{roleMeta.shortLabel}</strong>
+              <button className="text-button" onClick={() => setMode("choose")} type="button">
+                Change
+              </button>
+            </div>
 
-            {!isNgo && (
-              <>
-                <label>
-                  Full name
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, name: event.target.value }))} value={registerState.name} />
-                </label>
-                <label>
-                  Phone
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, phone: event.target.value }))} value={registerState.phone} />
-                </label>
-                <label>
-                  Email
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, email: event.target.value }))} type="email" value={registerState.email} />
-                </label>
-                <label>
-                  Password
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, password: event.target.value }))} type="password" value={registerState.password} />
-                </label>
-                <label className="full-span">
-                  Confirm password
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, confirmPassword: event.target.value }))} type="password" value={registerState.confirmPassword} />
-                </label>
-                {registerState.role === "volunteer" && (
-                  <>
-                    <label>
-                      Preferred distance
-                      <input onChange={(event) => setRegisterState((current) => ({ ...current, preferredDistanceRange: event.target.value }))} value={registerState.preferredDistanceRange} />
-                    </label>
-                    <label>
-                      Vehicle
-                      <input onChange={(event) => setRegisterState((current) => ({ ...current, vehicleAvailability: event.target.value }))} value={registerState.vehicleAvailability} />
-                    </label>
-                    <label className="full-span">
-                      Skills
-                      <input onChange={(event) => setRegisterState((current) => ({ ...current, skills: event.target.value }))} value={registerState.skills} />
-                    </label>
-                  </>
-                )}
-              </>
-            )}
-
-            {isNgo && ngoStep === 1 && (
+            {registerState.role === "ngo" ? (
               <>
                 <label>
                   NGO name
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, ngoName: event.target.value }))} value={registerState.ngoName} />
-                </label>
-                <label>
-                  Registration number
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, registrationNumber: event.target.value }))} value={registerState.registrationNumber} />
-                </label>
-                <label>
-                  Contact person
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, contactPerson: event.target.value }))} value={registerState.contactPerson} />
+                  <input
+                    onChange={(event) =>
+                      setRegisterState((current) => ({ ...current, ngoName: event.target.value }))
+                    }
+                    value={registerState.ngoName}
+                  />
                 </label>
                 <label>
                   Official email
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, email: event.target.value }))} type="email" value={registerState.email} />
+                  <input
+                    onChange={(event) =>
+                      setRegisterState((current) => ({ ...current, email: event.target.value }))
+                    }
+                    type="email"
+                    value={registerState.email}
+                  />
                 </label>
-              </>
-            )}
-
-            {isNgo && ngoStep === 2 && (
-              <>
-                <label className="full-span">
-                  Registration certificate URL
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, registrationCertificate: event.target.value }))} value={registerState.registrationCertificate} />
+                <label>
+                  Contact number
+                  <input
+                    onChange={(event) =>
+                      setRegisterState((current) => ({ ...current, phone: event.target.value }))
+                    }
+                    value={registerState.phone}
+                  />
                 </label>
-                <label className="full-span">
-                  Office proof URL
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, officeProof: event.target.value }))} value={registerState.officeProof} />
+                <label>
+                  Registration number
+                  <input
+                    onChange={(event) =>
+                      setRegisterState((current) => ({
+                        ...current,
+                        registrationNumber: event.target.value,
+                      }))
+                    }
+                    value={registerState.registrationNumber}
+                  />
                 </label>
-              </>
-            )}
-
-            {isNgo && ngoStep === 3 && (
-              <>
+                <label>
+                  Services
+                  <input
+                    onChange={(event) =>
+                      setRegisterState((current) => ({ ...current, categoryTags: event.target.value }))
+                    }
+                    placeholder="food,medical,disaster"
+                    value={registerState.categoryTags}
+                  />
+                </label>
                 <label className="full-span">
                   Office address
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, officeAddress: event.target.value }))} value={registerState.officeAddress} />
+                  <input
+                    onChange={(event) =>
+                      setRegisterState((current) => ({ ...current, officeAddress: event.target.value }))
+                    }
+                    value={registerState.officeAddress}
+                  />
+                </label>
+              </>
+            ) : (
+              <>
+                <label>
+                  Full name
+                  <input
+                    onChange={(event) =>
+                      setRegisterState((current) => ({ ...current, fullName: event.target.value }))
+                    }
+                    value={registerState.fullName}
+                  />
                 </label>
                 <label>
-                  Password
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, password: event.target.value }))} type="password" value={registerState.password} />
+                  Email
+                  <input
+                    onChange={(event) =>
+                      setRegisterState((current) => ({ ...current, email: event.target.value }))
+                    }
+                    type="email"
+                    value={registerState.email}
+                  />
                 </label>
                 <label>
-                  Confirm password
-                  <input onChange={(event) => setRegisterState((current) => ({ ...current, confirmPassword: event.target.value }))} type="password" value={registerState.confirmPassword} />
+                  Phone
+                  <input
+                    onChange={(event) =>
+                      setRegisterState((current) => ({ ...current, phone: event.target.value }))
+                    }
+                    value={registerState.phone}
+                  />
                 </label>
+                {registerState.role === "volunteer" ? (
+                  <>
+                    <label>
+                      Skills
+                      <input
+                        onChange={(event) =>
+                          setRegisterState((current) => ({ ...current, skills: event.target.value }))
+                        }
+                        placeholder="medical, transport, logistics"
+                        value={registerState.skills}
+                      />
+                    </label>
+                    <label>
+                      Preferred distance (km)
+                      <input
+                        min="1"
+                        onChange={(event) =>
+                          setRegisterState((current) => ({
+                            ...current,
+                            preferredDistanceKm: event.target.value,
+                          }))
+                        }
+                        type="number"
+                        value={registerState.preferredDistanceKm}
+                      />
+                    </label>
+                    <label className="full-span">
+                      Categories
+                      <input
+                        onChange={(event) =>
+                          setRegisterState((current) => ({ ...current, categoryTags: event.target.value }))
+                        }
+                        placeholder={REQUEST_CATEGORIES.map((item) => item.id).join(",")}
+                        value={registerState.categoryTags}
+                      />
+                    </label>
+                  </>
+                ) : null}
               </>
             )}
 
-            <button className="v2-primary-button full-width-button" type="submit">
-              {isNgo && ngoStep < 3 ? "Continue" : "Create Account"}
+            <label>
+              Password
+              <input
+                onChange={(event) =>
+                  setRegisterState((current) => ({ ...current, password: event.target.value }))
+                }
+                type="password"
+                value={registerState.password}
+              />
+            </label>
+            <label>
+              Confirm password
+              <input
+                onChange={(event) =>
+                  setRegisterState((current) => ({ ...current, confirmPassword: event.target.value }))
+                }
+                type="password"
+                value={registerState.confirmPassword}
+              />
+            </label>
+
+            {error ? <div className="form-alert">{error}</div> : null}
+
+            <button className="primary-button full-width" disabled={submitting} type="submit">
+              {submitting ? "Creating account..." : `Continue as ${roleMeta.shortLabel}`}
             </button>
-            <button className="v2-secondary-button full-width-button" onClick={() => setMode("choose")} type="button">
-              Change role
-            </button>
-            {error && <div className="form-message">{error}</div>}
           </form>
-        )}
+        ) : null}
       </section>
     </div>
   );

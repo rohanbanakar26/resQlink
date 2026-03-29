@@ -1,131 +1,91 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAppData } from "../context/AppDataContext";
 import { useAuth } from "../context/AuthContext";
-import { problemDomains } from "../data/appContent";
-import { uiProblemCategories } from "../data/presentationData";
+import { getCategoryMeta } from "../data/system";
+
 function AppHeader() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, profile, loading, logout } = useAuth();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { currentUser, profile, logout } = useAuth();
+  const { nearbyCriticalRequests } = useAppData();
+  const [panelOpen, setPanelOpen] = useState(false);
 
-  const handleLogout = async () => {
-    await logout();
-    navigate("/");
-  };
+  const shouldHideChrome = location.pathname === "/auth";
+  const topAlert = nearbyCriticalRequests[0];
 
-  const showBottomChrome =
-    location.pathname !== "/" &&
-    location.pathname !== "/auth" &&
-    !location.pathname.startsWith("/profile/ngo/") &&
-    !location.pathname.startsWith("/profile/volunteer/");
+  if (shouldHideChrome) {
+    return null;
+  }
 
   return (
     <>
-      {isMenuOpen && (
-        <div className="zip-overlay" onClick={() => setIsMenuOpen(false)} aria-hidden="true" />
-      )}
-      
-      <div className={`zip-side-drawer ${isMenuOpen ? "open" : ""}`}>
-        <div className="zip-drawer-header">
-          <span className="zip-drawer-title">Community Needs</span>
-          <button className="zip-close-button" onClick={() => setIsMenuOpen(false)} type="button">
-            ✕
-          </button>
-        </div>
-        <nav className="zip-drawer-nav">
-          {problemDomains.map((domain) => {
-            const categoryMeta = uiProblemCategories.find(c => c.id === domain.category) || uiProblemCategories[0];
-            return (
-              <button
-                key={domain.slug}
-                className="zip-drawer-link"
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  navigate(`/domain/${domain.slug}`);
-                }}
-                type="button"
-              >
-                <span className="emoji">{categoryMeta.emoji}</span>
-                {domain.shortTitle}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      <header className="zip-header">
-        <div className="zip-header-inner">
-          <div className="zip-header-brand">
-            <Link className="zip-brand" to={currentUser ? "/app" : "/"}>
-              <div className="zip-brand-badge">R</div>
-              <div className="zip-brand-copy">
-                <strong>ResQLink</strong>
-                <span>Smart Resource Allocation</span>
-              </div>
-            </Link>
-          </div>
-
-        <div className="zip-header-actions">
-          <button className="zip-circle-button" onClick={() => navigate("/search")} type="button">
-            Search
-          </button>
-          {currentUser && (
-            <button className="zip-circle-button notif-dot" onClick={() => navigate("/news")} type="button">
-              Alerts
+      <header className="app-header">
+        {topAlert ? (
+          <div className="live-alert-banner">
+            <button className="alert-button" onClick={() => setPanelOpen((current) => !current)} type="button">
+              <span className="live-dot" />
+              {nearbyCriticalRequests.length} critical alert{nearbyCriticalRequests.length > 1 ? "s" : ""} near you
             </button>
-          )}
+            <button className="text-button" onClick={() => navigate("/map")} type="button">
+              Open map
+            </button>
+          </div>
+        ) : null}
 
-          {loading ? (
-            <div className="zip-user-menu" style={{ opacity: 0 }}>
-              <button className="zip-profile-button" type="button" disabled>
-                <span className="zip-user-avatar" />
-              </button>
+        <div className="header-row">
+          <Link className="brand" to={currentUser ? "/emergency" : "/"}>
+            <span className="brand-badge">R</span>
+            <div>
+              <strong>ResQLink</strong>
+              <small>Real-time help coordination</small>
             </div>
-          ) : currentUser ? (
-            <div className="zip-user-menu">
-              <button className="zip-profile-button" onClick={() => navigate("/profile")} type="button">
-                <span className="zip-user-avatar">{(profile?.name || "U").charAt(0)}</span>
-                <span className="zip-user-copy">
-                  <strong>{profile?.name || "User"}</strong>
-                  <small>{profile?.role || "guest"}</small>
-                </span>
-              </button>
-              <button className="ghost-button small-ghost" onClick={handleLogout} type="button">
-                Logout
-              </button>
-            </div>
-          ) : (
-            <div className="zip-header-actions">
-              <button className="ghost-button small-ghost" onClick={() => navigate("/auth")} type="button">
-                Login
-              </button>
-              <button className="danger-button small-danger" onClick={() => navigate("/auth")} type="button">
-                Register
-              </button>
-            </div>
-          )}
+          </Link>
 
-          <button 
-            className="zip-hamburger-button" 
-            onClick={() => setIsMenuOpen(true)}
-            type="button"
-            aria-label="Open menu"
-          >
-            ☰
-          </button>
+          <div className="header-actions">
+            {currentUser ? (
+              <>
+                <button className="header-chip" onClick={() => navigate("/network")} type="button">
+                  Nearby network
+                </button>
+                <button className="profile-chip" onClick={() => navigate("/profile")} type="button">
+                  <span className="avatar-dot">{(profile?.name || "R").charAt(0)}</span>
+                  <span>{profile?.role || "member"}</span>
+                </button>
+                <button className="ghost-button" onClick={() => logout()} type="button">
+                  Logout
+                </button>
+              </>
+            ) : (
+              <button className="primary-button" onClick={() => navigate("/auth")} type="button">
+                Sign in
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      </header>
 
-      {showBottomChrome && location.pathname === "/app" && (
-        <div className="zip-live-banner">
-          <span>Active alert: critical zones update live as reports are submitted.</span>
-          <button className="alert-cta" onClick={() => navigate("/report")} type="button">
-            Report
-          </button>
+      {panelOpen && topAlert ? (
+        <div className="alert-panel">
+          {nearbyCriticalRequests.slice(0, 4).map((request) => (
+            <button
+              className="alert-row"
+              key={request.id}
+              onClick={() => {
+                setPanelOpen(false);
+                navigate("/requests");
+              }}
+              type="button"
+            >
+              <div>
+                <strong>{getCategoryMeta(request.category).label}</strong>
+                <p>{request.description || "Critical incident reported nearby"}</p>
+              </div>
+              <span>{request.distanceKm?.toFixed(1) ?? "?"} km</span>
+            </button>
+          ))}
         </div>
-      )}
-    </header>
+      ) : null}
     </>
   );
 }

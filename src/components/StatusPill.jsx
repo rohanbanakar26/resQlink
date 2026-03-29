@@ -1,5 +1,5 @@
-function StatusPill({ value }) {
-  return <span className={`status-pill status-${value}`}>{value}</span>;
+function StatusPill({ status }) {
+  return <span className={`status-pill ${String(status).toLowerCase().replace(/\s+/g, "-")}`}>{status}</span>;
 }
 
 export default StatusPill;

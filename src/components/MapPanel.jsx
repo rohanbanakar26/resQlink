@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaflet";
+import { formatDistance, haversineDistance } from "../utils/geo";
 
-function FitBounds({ points }) {
+function FitMapToMarkers({ points }) {
   const map = useMap();
 
   useEffect(() => {
@@ -20,84 +21,145 @@ function FitBounds({ points }) {
   return null;
 }
 
-function urgencyColor(urgency, status) {
-  if (status === "completed") {
-    return "#2f8f58";
+function requestColor(request) {
+  if (request.status === "Completed") {
+    return "#4f9d69";
   }
 
-  if (urgency === "critical" || urgency === "high") {
-    return "#d62f2f";
+  if (request.urgency === "critical") {
+    return "#d93c2f";
   }
 
-  if (urgency === "medium") {
-    return "#f7ab2f";
+  if (request.urgency === "high") {
+    return "#e57c22";
   }
 
-  return "#3d74c5";
+  return "#f0b144";
 }
 
-function MapPanel({ problems, volunteerLocation, title = "Crisis map" }) {
+function MapPanel({
+  requests = [],
+  volunteers = [],
+  ngos = [],
+  userLocation = null,
+  title = "Live coordination map",
+}) {
+  const requestPoints = requests
+    .filter((request) => request.location?.lat != null && request.location?.lng != null)
+    .map((request) => [request.location.lat, request.location.lng]);
+  const volunteerPoints = volunteers
+    .filter((volunteer) => volunteer.location?.lat != null && volunteer.location?.lng != null)
+    .map((volunteer) => [volunteer.location.lat, volunteer.location.lng]);
+  const ngoPoints = ngos
+    .filter((ngo) => ngo.location?.lat != null && ngo.location?.lng != null)
+    .map((ngo) => [ngo.location.lat, ngo.location.lng]);
   const points = [
-    ...problems
-      .filter((problem) => problem.location?.lat != null && problem.location?.lng != null)
-      .map((problem) => [problem.location.lat, problem.location.lng]),
-    ...(volunteerLocation?.lat != null && volunteerLocation?.lng != null
-      ? [[volunteerLocation.lat, volunteerLocation.lng]]
+    ...requestPoints,
+    ...volunteerPoints,
+    ...ngoPoints,
+    ...(userLocation?.lat != null && userLocation?.lng != null
+      ? [[userLocation.lat, userLocation.lng]]
       : []),
   ];
 
   return (
-    <section className="panel map-panel">
-      <div className="section-heading">
+    <section className="card map-card">
+      <div className="section-head">
         <div>
-          <p className="eyebrow">Map overview</p>
+          <span className="section-label">Realtime view</span>
           <h2>{title}</h2>
         </div>
-        <span className="subtle-copy">Live OpenStreetMap markers</span>
-      </div>
-      <div className="map-legend">
-        <span className="legend-chip critical">Critical / high</span>
-        <span className="legend-chip medium">Medium</span>
-        <span className="legend-chip resolved">Completed</span>
-        <span className="legend-chip volunteer">Volunteer</span>
+        <div className="map-legend">
+          <span><i className="legend-dot emergency" /> Emergencies</span>
+          <span><i className="legend-dot volunteer" /> Volunteers</span>
+          <span><i className="legend-dot ngo" /> NGOs</span>
+        </div>
       </div>
 
-      <div className="map-canvas live-map">
-        <MapContainer center={[20.5937, 78.9629]} scrollWheelZoom style={{ height: "100%", width: "100%" }} zoom={5}>
+      <div className="map-shell">
+        <MapContainer center={[20.5937, 78.9629]} zoom={5} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <FitBounds points={points} />
-          {problems.map((problem) =>
-            problem.location?.lat != null && problem.location?.lng != null ? (
+          <FitMapToMarkers points={points} />
+
+          {requests.map((request) =>
+            request.location?.lat != null && request.location?.lng != null ? (
               <CircleMarker
-                center={[problem.location.lat, problem.location.lng]}
-                color={urgencyColor(problem.urgency, problem.status)}
-                key={problem.id}
-                pathOptions={{ fillOpacity: 0.8 }}
-                radius={10}
+                center={[request.location.lat, request.location.lng]}
+                color={requestColor(request)}
+                key={request.id}
+                pathOptions={{ fillOpacity: 0.85 }}
+                radius={9}
               >
                 <Popup>
-                  <strong>{problem.category}</strong>
+                  <strong>{request.category}</strong>
                   <br />
-                  {problem.description || "No description"}
+                  {request.status}
                   <br />
-                  Status: {problem.status}
+                  {request.description || "No extra details"}
+                  {userLocation ? (
+                    <>
+                      <br />
+                      {formatDistance(haversineDistance(userLocation, request.location))}
+                    </>
+                  ) : null}
                 </Popup>
               </CircleMarker>
             ) : null,
           )}
-          {volunteerLocation?.lat != null && volunteerLocation?.lng != null && (
+
+          {volunteers.map((volunteer) =>
+            volunteer.location?.lat != null && volunteer.location?.lng != null ? (
+              <CircleMarker
+                center={[volunteer.location.lat, volunteer.location.lng]}
+                color="#189c64"
+                key={volunteer.id}
+                pathOptions={{ fillOpacity: 0.9 }}
+                radius={7}
+              >
+                <Popup>
+                  <strong>{volunteer.name}</strong>
+                  <br />
+                  Volunteer
+                  <br />
+                  {volunteer.available || volunteer.availability ? "Available" : "Offline"}
+                </Popup>
+              </CircleMarker>
+            ) : null,
+          )}
+
+          {ngos.map((ngo) =>
+            ngo.location?.lat != null && ngo.location?.lng != null ? (
+              <CircleMarker
+                center={[ngo.location.lat, ngo.location.lng]}
+                color="#2f6fe4"
+                key={ngo.id}
+                pathOptions={{ fillOpacity: 0.9 }}
+                radius={8}
+              >
+                <Popup>
+                  <strong>{ngo.ngoName}</strong>
+                  <br />
+                  NGO
+                  <br />
+                  Trust score {ngo.trustScore || 4.5}
+                </Popup>
+              </CircleMarker>
+            ) : null,
+          )}
+
+          {userLocation?.lat != null && userLocation?.lng != null ? (
             <CircleMarker
-              center={[volunteerLocation.lat, volunteerLocation.lng]}
-              color="#23518d"
-              pathOptions={{ fillOpacity: 0.8 }}
-              radius={9}
+              center={[userLocation.lat, userLocation.lng]}
+              color="#101828"
+              pathOptions={{ fillOpacity: 0.95 }}
+              radius={6}
             >
               <Popup>Your live location</Popup>
             </CircleMarker>
-          )}
+          ) : null}
         </MapContainer>
       </div>
     </section>

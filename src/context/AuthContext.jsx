@@ -4,17 +4,23 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
-import {
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-} from "firebase/firestore";
-import { createContext, useContext, useEffect, useState } from "react";
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { auth, db } from "../lib/firebase";
 
 const AuthContext = createContext(null);
+
+function normalizeRole(role) {
+  return role === "user" ? "citizen" : role;
+}
+
+function normalizeLocation(location) {
+  if (location?.lat != null && location?.lng != null) {
+    return location;
+  }
+
+  return null;
+}
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -31,8 +37,12 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      setProfile(userDoc.exists() ? userDoc.data() : null);
+      const snapshot = await getDoc(doc(db, "users", user.uid));
+      setProfile(
+        snapshot.exists()
+          ? { id: snapshot.id, ...snapshot.data(), role: normalizeRole(snapshot.data().role) }
+          : null,
+      );
       setLoading(false);
     });
 
@@ -40,161 +50,148 @@ export function AuthProvider({ children }) {
   }, []);
 
   const register = async ({
+    role,
+    fullName,
     email,
     password,
-    role,
-    name,
     phone,
-    skills,
     location,
-    available,
-    profilePhoto,
-    preferredDistanceRange,
+    photoUrl,
+    skills,
     categoryTags,
-    previousActivities,
     vehicleAvailability,
-    hybridMode,
+    preferredDistanceKm,
     ngoName,
+    organisationType,
     registrationNumber,
-    contactPerson,
+    coverageLabel,
     officeAddress,
-    officialEmailDomain,
-    officePhoto,
-    documentLinks,
-    adminReviewStatus,
   }) => {
     const credentials = await createUserWithEmailAndPassword(auth, email, password);
-    const baseUser = {
+    const normalizedLocation = normalizeLocation(location);
+    const baseProfile = {
+      name: fullName || ngoName || "ResQLink user",
       email,
-      role,
-      name,
       phone: phone || "",
-      profilePhoto: profilePhoto || "",
+      role: normalizeRole(role),
+      location: normalizedLocation,
+      photoUrl: photoUrl || "",
+      trustScore: role === "ngo" ? 4.7 : 4.4,
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
 
-    await setDoc(doc(db, "users", credentials.user.uid), baseUser);
+    await setDoc(doc(db, "users", credentials.user.uid), baseProfile);
 
-    if (role === "user") {
-      await setDoc(doc(db, "profiles", credentials.user.uid), {
+    if (normalizeRole(role) === "citizen") {
+      await setDoc(doc(db, "citizens", credentials.user.uid), {
         userId: credentials.user.uid,
-        name,
-        email,
-        phone: phone || "",
-        location,
-        profilePhoto: profilePhoto || "",
-        verificationBadge: "otp-verified",
-        createdAt: serverTimestamp(),
-      });
-    }
-
-    if (role === "volunteer") {
-      await setDoc(doc(db, "volunteers", credentials.user.uid), {
-        name,
-        skills,
-        location:
-          typeof location === "string"
-            ? {
-                label: location,
-              }
-            : location,
-        availability: available,
-        available,
-        email,
-        phone: phone || "",
-        profilePhoto: profilePhoto || "",
-        preferredDistanceRange: preferredDistanceRange || "5 km",
-        categoryTags: categoryTags || [],
-        previousActivities: previousActivities || "",
-        vehicleAvailability: vehicleAvailability || "none",
-        hybridMode: hybridMode ?? true,
-        status: "online",
-        createdAt: serverTimestamp(),
-      });
-    }
-
-    if (role === "ngo") {
-      await setDoc(doc(db, "ngos", credentials.user.uid), {
-        ngoName: ngoName || name,
-        registrationNumber: registrationNumber || "",
-        contactPerson: contactPerson || "",
-        email,
-        phone: phone || "",
-        officeAddress: officeAddress || "",
-        location,
-        profilePhoto: profilePhoto || "",
-        officialEmailDomain: officialEmailDomain || false,
-        officePhoto: officePhoto || "",
-        documentLinks: documentLinks || {},
-        trustScore: 4.7,
-        review: {
-          ngo_id: credentials.user.uid,
-          status: adminReviewStatus || "pending",
+        activeRequestCount: 0,
+        completedRequestCount: 0,
+        privacy: {
+          email: "private",
         },
-        verificationBadge: "pending-review",
-        services: [],
+        ...baseProfile,
+      });
+    }
+
+    if (normalizeRole(role) === "volunteer") {
+      await setDoc(doc(db, "volunteers", credentials.user.uid), {
+        userId: credentials.user.uid,
+        name: fullName,
+        email,
+        phone: phone || "",
+        skills: skills ?? [],
+        categoryTags: categoryTags ?? [],
+        location: normalizedLocation,
+        available: true,
+        availability: true,
+        preferredDistanceKm: Number(preferredDistanceKm || 10),
+        vehicleAvailability: vehicleAvailability || "none",
+        trustScore: 4.5,
+        completedTasks: 0,
+        activeTasks: 0,
+        verificationStatus: "verified",
+        photoUrl: photoUrl || "",
+        updatedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
       });
     }
 
-    setProfile(baseUser);
+    if (normalizeRole(role) === "ngo") {
+      await setDoc(doc(db, "ngos", credentials.user.uid), {
+        userId: credentials.user.uid,
+        ngoName: ngoName || fullName,
+        email,
+        phone: phone || "",
+        organisationType: organisationType || "Community NGO",
+        registrationNumber: registrationNumber || "",
+        location: normalizedLocation,
+        officeAddress: officeAddress || "",
+        coverageLabel: coverageLabel || "",
+        services: categoryTags ?? [],
+        trustScore: 4.8,
+        verificationStatus: "verified",
+        capacity: 25,
+        activeCampaigns: 2,
+        photoUrl: photoUrl || "",
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    setProfile({
+      id: credentials.user.uid,
+      ...baseProfile,
+    });
+
     return credentials.user;
   };
 
   const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
-
   const logout = () => signOut(auth);
 
   const refreshProfile = async (uid = currentUser?.uid) => {
     if (!uid) {
-      return;
+      return null;
     }
 
-    const userDoc = await getDoc(doc(db, "users", uid));
-    if (userDoc.exists()) {
-      setProfile(userDoc.data());
+    const snapshot = await getDoc(doc(db, "users", uid));
+    if (snapshot.exists()) {
+      const nextProfile = { id: snapshot.id, ...snapshot.data() };
+      nextProfile.role = normalizeRole(nextProfile.role);
+      setProfile(nextProfile);
+      return nextProfile;
     }
+
+    return null;
   };
 
-  const updateVolunteerProfile = async ({
-    name,
-    skills,
-    location,
-    available,
-    preferredDistanceRange,
-    categoryTags,
-    previousActivities,
-    vehicleAvailability,
-  }) => {
+  const saveUserProfile = async (updates) => {
     if (!currentUser) {
       return;
     }
 
-    await updateDoc(doc(db, "users", currentUser.uid), { name });
-    await updateDoc(doc(db, "volunteers", currentUser.uid), {
-      name,
-      skills,
-      location,
-      availability: available,
-      available,
-      preferredDistanceRange,
-      categoryTags,
-      previousActivities,
-      vehicleAvailability,
+    await updateDoc(doc(db, "users", currentUser.uid), {
+      ...updates,
+      updatedAt: serverTimestamp(),
     });
     await refreshProfile(currentUser.uid);
   };
 
-  const value = {
-    currentUser,
-    profile,
-    loading,
-    login,
-    logout,
-    register,
-    refreshProfile,
-    updateVolunteerProfile,
-  };
+  const value = useMemo(
+    () => ({
+      currentUser,
+      profile,
+      loading,
+      register,
+      login,
+      logout,
+      refreshProfile,
+      saveUserProfile,
+    }),
+    [currentUser, profile, loading],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

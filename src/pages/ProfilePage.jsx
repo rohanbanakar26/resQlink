@@ -1,147 +1,140 @@
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { mockNgoCards, mockVolunteerCards } from "../data/presentationData";
 import { db } from "../lib/firebase";
+import { useAppData } from "../context/AppDataContext";
+import { useAuth } from "../context/AuthContext";
 
 function ProfilePage() {
-  const navigate = useNavigate();
-  const { type, id } = useParams();
-  const { currentUser, profile } = useAuth();
-  const [volunteerDoc, setVolunteerDoc] = useState(null);
-  const [ngoDoc, setNgoDoc] = useState(null);
-
-  const isPublicNgo = type === "ngo" && id;
-  const isPublicVolunteer = type === "volunteer" && id;
+  const { currentUser, profile, saveUserProfile } = useAuth();
+  const { myRequests, volunteers, updateVolunteerAvailability } = useAppData();
+  const [roleDoc, setRoleDoc] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState(profile?.name || "");
 
   useEffect(() => {
-    if (isPublicNgo) {
-      getDoc(doc(db, "ngos", id)).then((snapshot) => {
-        setNgoDoc(snapshot.exists() ? { id, ...snapshot.data() } : mockNgoCards.find((item) => item.id === id) || mockNgoCards[0]);
-      });
+    if (!currentUser || !profile?.role) {
       return;
     }
 
-    if (isPublicVolunteer) {
-      getDoc(doc(db, "volunteers", id)).then((snapshot) => {
-        setVolunteerDoc(snapshot.exists() ? { id, ...snapshot.data() } : mockVolunteerCards.find((item) => item.id === id) || mockVolunteerCards[0]);
-      });
-      return;
+    const collectionName =
+      profile.role === "ngo" ? "ngos" : profile.role === "volunteer" ? "volunteers" : "citizens";
+
+    getDoc(doc(db, collectionName, currentUser.uid)).then((snapshot) => {
+      setRoleDoc(snapshot.exists() ? snapshot.data() : null);
+    });
+  }, [currentUser, profile?.role]);
+
+  useEffect(() => {
+    setName(profile?.name || "");
+  }, [profile?.name]);
+
+  const activeCount = myRequests.filter((item) => item.status !== "Completed").length;
+  const completedCount = myRequests.filter((item) => item.status === "Completed").length;
+  const trustScore = roleDoc?.trustScore || profile?.trustScore || 4.5;
+
+  const headline = useMemo(() => {
+    if (profile?.role === "ngo") {
+      return "Coordinate the network from one trusted profile.";
     }
 
-    if (profile?.role === "ngo" && currentUser) {
-      getDoc(doc(db, "ngos", currentUser.uid)).then((snapshot) => {
-        setNgoDoc(snapshot.exists() ? snapshot.data() : mockNgoCards[0]);
-      });
+    if (profile?.role === "volunteer") {
+      return "Stay visible and available when help is needed nearby.";
     }
-    if (profile?.role === "volunteer" && currentUser) {
-      getDoc(doc(db, "volunteers", currentUser.uid)).then((snapshot) => {
-        setVolunteerDoc(snapshot.exists() ? snapshot.data() : mockVolunteerCards[0]);
-      });
-    }
-  }, [currentUser, id, isPublicNgo, isPublicVolunteer, profile]);
 
-  const activeNgo = useMemo(() => ngoDoc && ({
-    ...ngoDoc,
-    ngoName: ngoDoc.ngoName || ngoDoc.name,
-    logo: ngoDoc.logo || (ngoDoc.ngoName || ngoDoc.name || "N").charAt(0),
-    services: ngoDoc.services || [],
-  }), [ngoDoc]);
+    return "Keep your profile ready so you can request help faster.";
+  }, [profile?.role]);
 
-  const activeVolunteer = useMemo(() => volunteerDoc && ({
-    ...volunteerDoc,
-    photo: volunteerDoc.photo || volunteerDoc.profilePhoto || (volunteerDoc.name || "V").charAt(0),
-    skills: volunteerDoc.skills || [],
-    location: volunteerDoc.location?.label || (volunteerDoc.location?.lat ? `${volunteerDoc.location.lat.toFixed(4)}, ${volunteerDoc.location.lng.toFixed(4)}` : "Location unavailable"),
-  }), [volunteerDoc]);
-
-  const showUserSelf = !isPublicNgo && !isPublicVolunteer && profile?.role === "user";
+  const handleSave = async () => {
+    setSaving(true);
+    await saveUserProfile({ name });
+    setSaving(false);
+  };
 
   return (
-    <div className="v2-profile-page">
-      <section className="v2-profile-cover">
-        {(isPublicNgo || isPublicVolunteer) && (
-          <button className="v2-inline-link" onClick={() => navigate(-1)} type="button">
-            Back
-          </button>
-        )}
+    <div className="page-stack">
+      <section className="hero-card compact">
+        <div>
+          <span className="section-label">Profile</span>
+          <h1>{headline}</h1>
+        </div>
+        <div className="hero-kpis">
+          <div className="stat-card">
+            <strong>{activeCount}</strong>
+            <span>active tasks</span>
+          </div>
+          <div className="stat-card">
+            <strong>{completedCount}</strong>
+            <span>completed</span>
+          </div>
+          <div className="stat-card">
+            <strong>{trustScore}</strong>
+            <span>trust score</span>
+          </div>
+        </div>
       </section>
 
-      {showUserSelf && (
-        <section className="v2-profile-shell">
-          <div className="v2-profile-head">
-            <span className="v2-profile-avatar">{(profile?.name || "U").charAt(0)}</span>
+      <section className="split-grid">
+        <article className="card form-stack">
+          <div className="profile-head">
+            <span className="profile-avatar">{(profile?.name || "R").charAt(0)}</span>
             <div>
-              <h1>{profile?.name || "User"}</h1>
-              <p>{profile?.phone || "Verified account"}</p>
+              <strong>{profile?.role}</strong>
+              <p>{profile?.email}</p>
             </div>
           </div>
-          <div className="v2-profile-stats">
-            <div><strong>1</strong><span>active request</span></div>
-            <div><strong>2</strong><span>resolved</span></div>
-            <div><strong>4.2</strong><span>trust rating</span></div>
-          </div>
-        </section>
-      )}
 
-      {(isPublicNgo || (!isPublicVolunteer && profile?.role === "ngo")) && activeNgo && (
-        <section className="v2-profile-shell">
-          <div className="v2-profile-head">
-            <span className="v2-profile-avatar square">{String(activeNgo.logo).slice(0, 2).toUpperCase()}</span>
-            <div>
-              <h1>{activeNgo.ngoName}</h1>
-              <p>{activeNgo.officeAddress || "Coverage area"}</p>
-            </div>
-          </div>
-          <div className="v2-profile-stats">
-            <div><strong>{activeNgo.trustScore || 4.7}</strong><span>trust score</span></div>
-            <div><strong>{activeNgo.totalHelped || 1240}</strong><span>people helped</span></div>
-            <div><strong>{activeNgo.activeCampaigns || 3}</strong><span>campaigns</span></div>
-          </div>
-          <div className="v2-profile-content">
-            <div className="tag-cloud">
-              {(activeNgo.services || []).map((service) => (
-                <span className="tag-pill" key={service}>{service}</span>
-              ))}
-            </div>
-            <p>{activeNgo.description || "Verified NGO profile."}</p>
-            <div className="v2-home-actions">
-              <button className="v2-primary-button" type="button">Request Support</button>
-              <button className="v2-secondary-button" type="button">Follow NGO</button>
-            </div>
-          </div>
-        </section>
-      )}
+          <label>
+            Name
+            <input onChange={(event) => setName(event.target.value)} value={name} />
+          </label>
 
-      {(isPublicVolunteer || (!isPublicNgo && profile?.role === "volunteer")) && activeVolunteer && (
-        <section className="v2-profile-shell">
-          <div className="v2-profile-head">
-            <span className="v2-profile-avatar">{String(activeVolunteer.photo).slice(0, 2).toUpperCase()}</span>
+          {profile?.role === "volunteer" ? (
+            <label className="toggle-row">
+              <span>Available for nearby assignments</span>
+              <input
+                checked={Boolean(roleDoc?.available || roleDoc?.availability)}
+                onChange={(event) => updateVolunteerAvailability(event.target.checked)}
+                type="checkbox"
+              />
+            </label>
+          ) : null}
+
+          <button className="primary-button" disabled={saving} onClick={handleSave} type="button">
+            {saving ? "Saving..." : "Save profile"}
+          </button>
+        </article>
+
+        <article className="card">
+          <div className="section-head">
             <div>
-              <h1>{activeVolunteer.name}</h1>
-              <p>{activeVolunteer.location}</p>
+              <span className="section-label">Capabilities</span>
+              <h2>Role-specific details</h2>
             </div>
           </div>
-          <div className="v2-profile-stats">
-            <div><strong>{activeVolunteer.rating || 4.8}</strong><span>rating</span></div>
-            <div><strong>{activeVolunteer.tasksCompleted || 0}</strong><span>tasks done</span></div>
-            <div><strong>{activeVolunteer.successRate || "95%"}</strong><span>success rate</span></div>
-          </div>
-          <div className="v2-profile-content">
-            <div className="tag-cloud">
-              {(activeVolunteer.skills || []).map((skill) => (
-                <span className="tag-pill" key={skill}>{skill}</span>
-              ))}
+          <div className="detail-stack">
+            <div>
+              <strong>Location</strong>
+              <p>
+                {profile?.location?.lat != null
+                  ? `${profile.location.lat.toFixed(4)}, ${profile.location.lng.toFixed(4)}`
+                  : "Waiting for location permission"}
+              </p>
             </div>
-            <p>Vehicle: {activeVolunteer.vehicleAvailability || "None"} · NGO: {activeVolunteer.ngo || "Independent volunteer"}</p>
-            <div className="v2-home-actions">
-              <button className="v2-primary-button" type="button">Contact</button>
-              <button className="v2-secondary-button" type="button">Follow</button>
+            <div>
+              <strong>Skills / Services</strong>
+              <p>{(roleDoc?.skills || roleDoc?.services || []).join(", ") || "Not added yet"}</p>
+            </div>
+            <div>
+              <strong>Verification</strong>
+              <p>{roleDoc?.verificationStatus || "verified"}</p>
+            </div>
+            <div>
+              <strong>Vehicle / Capacity</strong>
+              <p>{roleDoc?.vehicleAvailability || roleDoc?.capacity || "Not specified"}</p>
             </div>
           </div>
-        </section>
-      )}
+        </article>
+      </section>
     </div>
   );
 }
