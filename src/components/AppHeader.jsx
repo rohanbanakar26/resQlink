@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { problemDomains } from "../data/appContent";
-
+import { uiProblemCategories } from "../data/presentationData";
 function AppHeader() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -34,19 +34,23 @@ function AppHeader() {
           </button>
         </div>
         <nav className="zip-drawer-nav">
-          {problemDomains.map((domain) => (
-            <button
-              key={domain.slug}
-              className="zip-drawer-link"
-              onClick={() => {
-                setIsMenuOpen(false);
-                navigate(`/domain/${domain.slug}`);
-              }}
-              type="button"
-            >
-              {domain.shortTitle}
-            </button>
-          ))}
+          {problemDomains.map((domain) => {
+            const categoryMeta = uiProblemCategories.find(c => c.id === domain.category) || uiProblemCategories[0];
+            return (
+              <button
+                key={domain.slug}
+                className="zip-drawer-link"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  navigate(`/domain/${domain.slug}`);
+                }}
+                type="button"
+              >
+                <span className="emoji">{categoryMeta.emoji}</span>
+                {domain.shortTitle}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
