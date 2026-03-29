@@ -90,12 +90,19 @@ export function scoreVolunteer(request, volunteer) {
   const trustScore = normalizeTrustScore(
     volunteer.trustScore ?? volunteer.rating ?? volunteer.reliabilityScore,
   );
+  const skillScore = getVolunteerSkillScore(request, volunteer);
+  const distanceScore = getDistanceScore(distanceKm);
 
   return {
     distanceKm,
+    reasons: [
+      distanceKm != null && distanceKm <= 5 ? "Closest" : "Reachable",
+      volunteer.available || volunteer.availability ? "Available" : "Limited",
+      skillScore >= 34 ? "Skill match" : "General support",
+    ],
     score:
-      getVolunteerSkillScore(request, volunteer) +
-      getDistanceScore(distanceKm) +
+      skillScore +
+      distanceScore +
       availabilityScore +
       trustScore * 4 +
       getPriorityBoost(request.priorityScore),
@@ -107,12 +114,19 @@ export function scoreNgo(request, ngo) {
   const trustScore = normalizeTrustScore(ngo.trustScore);
   const verifiedScore = ngo.verificationStatus === "verified" ? 18 : 8;
   const capacityScore = Math.min(Number(ngo.capacity ?? ngo.dailyHandlingCapacity ?? 20), 40) / 2;
+  const capabilityScore = getNgoCapabilityScore(request, ngo);
+  const distanceScore = getDistanceScore(distanceKm);
 
   return {
     distanceKm,
+    reasons: [
+      ngo.verificationStatus === "verified" ? "Verified NGO" : "NGO available",
+      capabilityScore >= 32 ? "Category capacity" : "General support",
+      distanceKm != null && distanceKm <= 10 ? "Nearby" : "Reachable",
+    ],
     score:
-      getNgoCapabilityScore(request, ngo) +
-      getDistanceScore(distanceKm) +
+      capabilityScore +
+      distanceScore +
       verifiedScore +
       trustScore * 4 +
       capacityScore,
@@ -127,6 +141,7 @@ export function findBestVolunteer(request, volunteers) {
       return {
         ...volunteer,
         distanceKm: result.distanceKm,
+        matchReasons: result.reasons,
         score: result.score,
       };
     })
@@ -140,6 +155,7 @@ export function findBestNgo(request, ngos) {
       return {
         ...ngo,
         distanceKm: result.distanceKm,
+        matchReasons: result.reasons,
         score: result.score,
       };
     })

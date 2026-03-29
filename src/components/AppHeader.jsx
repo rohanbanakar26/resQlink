@@ -1,18 +1,17 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import AlertPanel from "./AlertPanel";
 import { useAppData } from "../context/AppDataContext";
 import { useAuth } from "../context/AuthContext";
-import { getCategoryMeta } from "../data/system";
 
 function AppHeader() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, profile, logout } = useAuth();
-  const { nearbyCriticalRequests } = useAppData();
+  const { nearbyCriticalRequests, emergencyMode, setEmergencyMode, networkOnline } = useAppData();
   const [panelOpen, setPanelOpen] = useState(false);
 
   const shouldHideChrome = location.pathname === "/auth";
-  const topAlert = nearbyCriticalRequests[0];
 
   if (shouldHideChrome) {
     return null;
@@ -21,18 +20,6 @@ function AppHeader() {
   return (
     <>
       <header className="app-header">
-        {topAlert ? (
-          <div className="live-alert-banner">
-            <button className="alert-button" onClick={() => setPanelOpen((current) => !current)} type="button">
-              <span className="live-dot" />
-              {nearbyCriticalRequests.length} critical alert{nearbyCriticalRequests.length > 1 ? "s" : ""} near you
-            </button>
-            <button className="text-button" onClick={() => navigate("/map")} type="button">
-              Open map
-            </button>
-          </div>
-        ) : null}
-
         <div className="header-row">
           <Link className="brand" to={currentUser ? "/emergency" : "/"}>
             <span className="brand-badge">R</span>
@@ -45,8 +32,16 @@ function AppHeader() {
           <div className="header-actions">
             {currentUser ? (
               <>
+                <label className="mode-toggle">
+                  <span>Emergency mode</span>
+                  <input
+                    checked={emergencyMode}
+                    onChange={(event) => setEmergencyMode(event.target.checked)}
+                    type="checkbox"
+                  />
+                </label>
                 <button className="header-chip" onClick={() => navigate("/network")} type="button">
-                  Nearby network
+                  {networkOnline ? "Live network" : "Offline mode"}
                 </button>
                 <button className="profile-chip" onClick={() => navigate("/profile")} type="button">
                   <span className="avatar-dot">{(profile?.name || "R").charAt(0)}</span>
@@ -65,26 +60,14 @@ function AppHeader() {
         </div>
       </header>
 
-      {panelOpen && topAlert ? (
-        <div className="alert-panel">
-          {nearbyCriticalRequests.slice(0, 4).map((request) => (
-            <button
-              className="alert-row"
-              key={request.id}
-              onClick={() => {
-                setPanelOpen(false);
-                navigate("/requests");
-              }}
-              type="button"
-            >
-              <div>
-                <strong>{getCategoryMeta(request.category).label}</strong>
-                <p>{request.description || "Critical incident reported nearby"}</p>
-              </div>
-              <span>{request.distanceKm?.toFixed(1) ?? "?"} km</span>
-            </button>
-          ))}
-        </div>
+      {nearbyCriticalRequests.length ? (
+        <AlertPanel
+          alerts={nearbyCriticalRequests.slice(0, 4)}
+          expanded={panelOpen}
+          onRespond={() => navigate("/requests")}
+          onToggle={() => setPanelOpen((current) => !current)}
+          onViewMap={() => navigate("/map")}
+        />
       ) : null}
     </>
   );

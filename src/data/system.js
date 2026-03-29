@@ -21,6 +21,12 @@ export const ROLE_OPTIONS = [
 
 export const REQUEST_CATEGORIES = [
   {
+    id: "general",
+    label: "General Emergency",
+    emoji: "🚨",
+    summary: "Fast dispatch when the exact category can be refined after sending",
+  },
+  {
     id: "food",
     label: "Food",
     emoji: "🍲",
@@ -73,6 +79,7 @@ export const URGENCY_OPTIONS = [
 
 export const REQUEST_STATUSES = [
   "Requested",
+  "Pending sync",
   "Accepted",
   "Volunteer assigned",
   "In progress",
@@ -81,6 +88,7 @@ export const REQUEST_STATUSES = [
 
 export const STATUS_COPY = {
   Requested: "Request received",
+  "Pending sync": "Waiting for network",
   Accepted: "NGO accepted",
   "Volunteer assigned": "Volunteer matched",
   "In progress": "Help on the way",

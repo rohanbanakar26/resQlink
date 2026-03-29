@@ -119,7 +119,8 @@ textarea {
 
 .live-alert-banner,
 .header-row,
-.alert-panel {
+.alert-panel,
+.alert-panel-card {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
 }
@@ -367,6 +368,26 @@ textarea {
   box-shadow: 0 18px 44px rgba(217, 60, 47, 0.3);
   font-weight: 700;
   animation: pulse 1.8s infinite;
+}
+
+.emergency-fab {
+  position: fixed;
+  left: 50%;
+  bottom: 104px;
+  transform: translateX(-50%);
+  z-index: 21;
+  padding: 16px 24px;
+  border-radius: 999px;
+  background: #ff3b30;
+  color: #fff;
+  box-shadow: 0 20px 44px rgba(255, 59, 48, 0.28);
+  font-weight: 700;
+  animation: pulse 1.8s infinite;
+}
+
+.emergency-fab.busy {
+  animation: none;
+  opacity: 0.82;
 }
 
 .landing-hero,
@@ -634,6 +655,12 @@ textarea {
   align-items: start;
 }
 
+.command-center {
+  display: grid;
+  gap: 20px;
+  grid-template-rows: minmax(320px, 50vh) minmax(260px, auto);
+}
+
 .request-card {
   width: 100%;
   min-width: 0;
@@ -691,6 +718,45 @@ textarea {
   height: 420px;
   overflow: hidden;
   border-radius: 22px;
+}
+
+.command-center .map-shell {
+  height: 100%;
+  min-height: 320px;
+}
+
+.feed-card {
+  min-height: 280px;
+}
+
+.feed-scroll {
+  display: grid;
+  gap: 10px;
+  max-height: 340px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.feed-item {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(18, 32, 24, 0.03);
+}
+
+.feed-item-top,
+.feed-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.feed-meta {
+  margin: 10px 0 6px;
+  color: var(--muted);
+  font-size: 0.92rem;
 }
 
 .leaflet-container {
@@ -793,6 +859,111 @@ textarea {
   color: var(--danger-strong);
 }
 
+.alert-panel-card {
+  margin-bottom: 12px;
+  position: sticky;
+  top: 86px;
+  z-index: 22;
+  border: 1px solid rgba(255, 59, 48, 0.14);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 48px rgba(16, 18, 20, 0.12);
+}
+
+.alert-panel-toggle {
+  width: 100%;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--danger-strong);
+  font-weight: 700;
+}
+
+.alert-panel-list {
+  display: grid;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 59, 48, 0.05);
+}
+
+.alert-item-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(18, 32, 24, 0.05);
+  color: var(--text);
+}
+
+.mode-toggle input {
+  width: auto;
+}
+
+.skill-editor {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.skill-chip {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(18, 32, 24, 0.06);
+  color: var(--text);
+}
+
+.skill-chip.active {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(11, 18, 14, 0.34);
+}
+
+.bottom-sheet {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(760px, 100%);
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  padding: 18px 18px 28px;
+  border-radius: 28px 28px 0 0;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 -18px 48px rgba(16, 18, 20, 0.16);
+}
+
+.sheet-handle {
+  width: 48px;
+  height: 5px;
+  margin: 0 auto 12px;
+  border-radius: 999px;
+  background: rgba(18, 32, 24, 0.18);
+}
+
 @keyframes pulse {
   0%,
   100% {
@@ -827,13 +998,18 @@ textarea {
   .hero-kpis {
     justify-content: flex-start;
   }
+
+  .command-center {
+    grid-template-rows: minmax(280px, 42vh) auto;
+  }
 }
 
 @media (max-width: 720px) {
   .page-shell,
   .live-alert-banner,
   .header-row,
-  .alert-panel {
+  .alert-panel,
+  .alert-panel-card {
     width: min(100%, calc(100% - 24px));
   }
 
@@ -862,13 +1038,30 @@ textarea {
     text-align: center;
   }
 
+  .emergency-fab {
+    bottom: 92px;
+    width: calc(100% - 64px);
+    text-align: center;
+  }
+
   .stepper,
   .request-card-top,
   .request-meta,
   .request-actions,
-  .network-head {
+  .network-head,
+  .alert-item,
+  .feed-item-top,
+  .feed-meta {
     grid-template-columns: 1fr;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .alert-panel-card {
+    top: 76px;
+  }
+
+  .bottom-sheet {
+    width: 100%;
   }
 }

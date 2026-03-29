@@ -1,9 +1,11 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import AppHeader from "./components/AppHeader";
 import BottomNav from "./components/BottomNav";
+import EmergencyFAB from "./components/EmergencyFAB";
 import EmergencyForm from "./components/EmergencyForm";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { useAppData } from "./context/AppDataContext";
 import { useAuth } from "./context/AuthContext";
 
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -18,35 +20,36 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const { createQuickEmergency, requests, emergencyMode } = useAppData();
   const [composerOpen, setComposerOpen] = useState(false);
-  const [composerCategory, setComposerCategory] = useState("medical");
+  const [activeRequestId, setActiveRequestId] = useState(null);
+  const [sendingEmergency, setSendingEmergency] = useState(false);
 
-  const searchParams = useMemo(
-    () => new URLSearchParams(location.search),
-    [location.search],
+  const activeRequest = useMemo(
+    () => requests.find((request) => request.id === activeRequestId) ?? null,
+    [activeRequestId, requests],
   );
-
-  useEffect(() => {
-    if (searchParams.get("compose") === "1") {
-      setComposerCategory(searchParams.get("category") || "medical");
-      setComposerOpen(true);
-    }
-  }, [searchParams]);
 
   const closeComposer = () => {
     setComposerOpen(false);
-    if (location.search) {
-      navigate(location.pathname, { replace: true });
-    }
+    setActiveRequestId(null);
   };
 
-  const openComposer = () => {
-    const params = new URLSearchParams(location.search);
-    params.set("compose", "1");
-    if (!params.get("category")) {
-      params.set("category", "medical");
+  const openComposer = async () => {
+    if (!currentUser) {
+      navigate("/auth");
+      return;
     }
-    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+
+    setSendingEmergency(true);
+    try {
+      const requestId = await createQuickEmergency();
+      setActiveRequestId(requestId);
+      setComposerOpen(true);
+      navigate("/emergency");
+    } finally {
+      setSendingEmergency(false);
+    }
   };
 
   const showShell = location.pathname !== "/";
@@ -102,7 +105,7 @@ function App() {
               }
             />
             <Route path="/app" element={<Navigate replace to="/emergency" />} />
-            <Route path="/report" element={<Navigate replace to="/emergency?compose=1" />} />
+            <Route path="/report" element={<Navigate replace to="/emergency" />} />
             <Route path="/search" element={<Navigate replace to="/network" />} />
             <Route path="/ngo" element={<Navigate replace to="/requests" />} />
             <Route path="/volunteer" element={<Navigate replace to="/requests" />} />
@@ -115,19 +118,11 @@ function App() {
         </Suspense>
       </main>
 
-      {showStickyCta ? (
-        <button className="sticky-emergency-cta" onClick={openComposer} type="button">
-          🚨 Report Emergency
-        </button>
-      ) : null}
+      {showStickyCta ? <EmergencyFAB busy={sendingEmergency} onPress={openComposer} /> : null}
 
-      <EmergencyForm
-        initialCategory={composerCategory}
-        onClose={closeComposer}
-        open={composerOpen}
-      />
+      <EmergencyForm onClose={closeComposer} open={composerOpen} request={activeRequest} />
 
-      <BottomNav />
+      {showShell && !emergencyMode ? <BottomNav /> : null}
     </div>
   );
 }
