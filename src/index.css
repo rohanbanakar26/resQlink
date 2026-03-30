@@ -101,7 +101,7 @@ textarea {
   margin: 0 auto;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: calc(var(--header-height) + 24px) 16px 120px;
+  padding: calc(var(--header-height) + 24px) 16px calc(120px + env(safe-area-inset-bottom, 0px));
   scroll-padding-top: calc(var(--header-height) + 16px);
 }
 
@@ -259,6 +259,11 @@ textarea {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  min-width: 0;
+}
+
+.header-actions {
+  justify-content: flex-end;
 }
 
 .header-chip,
@@ -339,7 +344,7 @@ textarea {
 .bottom-nav {
   position: fixed;
   left: 50%;
-  bottom: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 20;
   width: min(calc(100vw - 32px), 600px);
@@ -361,6 +366,8 @@ textarea {
   display: grid;
   gap: 4px;
   justify-items: center;
+  align-content: center;
+  text-align: center;
 }
 
 .bottom-icon.active,
@@ -391,7 +398,7 @@ textarea {
 .emergency-fab {
   position: fixed;
   left: 50%;
-  bottom: var(--fab-offset);
+  bottom: calc(var(--fab-offset) + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 21;
   width: auto;
@@ -721,6 +728,10 @@ textarea {
   flex-wrap: wrap;
 }
 
+.request-actions > * {
+  min-width: 0;
+}
+
 .map-card {
   min-width: 0;
   display: grid;
@@ -827,6 +838,16 @@ textarea {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid label,
+.sheet-form label,
+.feed-item,
+.network-card,
+.mini-row,
+.stat-card,
+.request-card > div {
+  min-width: 0;
 }
 
 .form-grid .full-span,
@@ -1083,6 +1104,10 @@ textarea {
 }
 
 @media (max-width: 720px) {
+  :root {
+    --header-height: 138px;
+  }
+
   .page-shell,
   .live-alert-banner,
   .header-row,
@@ -1092,7 +1117,7 @@ textarea {
   }
 
   .page-shell {
-    padding-top: 16px;
+    padding-top: calc(var(--header-height) + 14px);
   }
 
   .hero-copy,
@@ -1107,13 +1132,62 @@ textarea {
 
   .bottom-nav {
     width: calc(100% - 20px);
-    bottom: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    height: 64px;
+    padding: 8px 6px;
   }
 
   .emergency-fab {
-    bottom: 80px;
-    max-width: calc(100% - 96px);
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100% - 112px);
+    padding: 13px 18px;
     text-align: center;
+  }
+
+  .app-header {
+    padding-top: 8px;
+  }
+
+  .header-row {
+    gap: 10px;
+    padding: 4px 0 8px;
+  }
+
+  .brand {
+    width: 100%;
+  }
+
+  .brand-badge {
+    width: 38px;
+    height: 38px;
+    font-size: 1rem;
+  }
+
+  .brand small {
+    font-size: 0.76rem;
+  }
+
+  .header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    justify-content: stretch;
+  }
+
+  .header-actions > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .mode-toggle,
+  .header-chip,
+  .profile-chip,
+  .ghost-button,
+  .primary-button {
+    justify-content: center;
+    padding: 10px 12px;
+    font-size: 0.88rem;
   }
 
   .stepper,
@@ -1130,10 +1204,44 @@ textarea {
   }
 
   .alert-panel-card {
-    top: 76px;
+    top: calc(var(--header-height) - 8px);
   }
 
   .bottom-sheet {
     width: 100%;
+  }
+
+  .feed-scroll {
+    gap: 8px;
+  }
+
+  .feed-item,
+  .request-card,
+  .network-card,
+  .mini-row {
+    padding: 14px;
+  }
+
+  .map-shell {
+    height: 42vh;
+    min-height: 240px;
+    max-height: 320px;
+  }
+
+  .section-head {
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .hero-kpis {
+    width: 100%;
+  }
+
+  .hero-kpis .stat-card {
+    flex: 1 1 calc(50% - 6px);
+  }
+
+  .bottom-label {
+    font-size: 0.68rem;
   }
 }
