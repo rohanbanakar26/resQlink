@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import AppHeader from "./components/AppHeader";
+import AppLayout from "./components/AppLayout";
 import BottomNav from "./components/BottomNav";
 import EmergencyFAB from "./components/EmergencyFAB";
 import EmergencyForm from "./components/EmergencyForm";
@@ -55,75 +56,74 @@ function App() {
   const showShell = location.pathname !== "/";
   const showStickyCta = currentUser && location.pathname !== "/auth";
 
+  const routes = (
+    <Suspense fallback={<section className="page-skeleton">Loading ResQLink...</section>}>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route
+          path="/emergency"
+          element={
+            <ProtectedRoute>
+              <EmergencyPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/requests"
+          element={
+            <ProtectedRoute>
+              <RequestsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/map"
+          element={
+            <ProtectedRoute>
+              <MapPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/network"
+          element={
+            <ProtectedRoute>
+              <NetworkPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/app" element={<Navigate replace to="/emergency" />} />
+        <Route path="/report" element={<Navigate replace to="/emergency" />} />
+        <Route path="/search" element={<Navigate replace to="/network" />} />
+        <Route path="/ngo" element={<Navigate replace to="/requests" />} />
+        <Route path="/volunteer" element={<Navigate replace to="/requests" />} />
+        <Route path="/about" element={<Navigate replace to="/" />} />
+        <Route path="/news" element={<Navigate replace to="/requests" />} />
+        <Route path="/domain/:slug" element={<Navigate replace to="/emergency" />} />
+        <Route path="/profile/:type/:id" element={<Navigate replace to="/network" />} />
+        <Route path="*" element={<Navigate replace to={currentUser ? "/emergency" : "/"} />} />
+      </Routes>
+    </Suspense>
+  );
+
   return (
-    <div className="app-shell">
-      {showShell ? <AppHeader /> : null}
-
-      <main className="page-shell">
-        <Suspense fallback={<section className="page-skeleton">Loading ResQLink...</section>}>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/auth" element={<AuthPage />} />
-            <Route
-              path="/emergency"
-              element={
-                <ProtectedRoute>
-                  <EmergencyPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/requests"
-              element={
-                <ProtectedRoute>
-                  <RequestsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/map"
-              element={
-                <ProtectedRoute>
-                  <MapPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/network"
-              element={
-                <ProtectedRoute>
-                  <NetworkPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/app" element={<Navigate replace to="/emergency" />} />
-            <Route path="/report" element={<Navigate replace to="/emergency" />} />
-            <Route path="/search" element={<Navigate replace to="/network" />} />
-            <Route path="/ngo" element={<Navigate replace to="/requests" />} />
-            <Route path="/volunteer" element={<Navigate replace to="/requests" />} />
-            <Route path="/about" element={<Navigate replace to="/" />} />
-            <Route path="/news" element={<Navigate replace to="/requests" />} />
-            <Route path="/domain/:slug" element={<Navigate replace to="/emergency" />} />
-            <Route path="/profile/:type/:id" element={<Navigate replace to="/network" />} />
-            <Route path="*" element={<Navigate replace to={currentUser ? "/emergency" : "/"} />} />
-          </Routes>
-        </Suspense>
-      </main>
-
-      {showStickyCta ? <EmergencyFAB busy={sendingEmergency} onPress={openComposer} /> : null}
-
+    <AppLayout
+      chromeBottom={showShell && !emergencyMode ? <BottomNav /> : null}
+      chromeTop={showShell ? <AppHeader /> : null}
+      floatingAction={showStickyCta ? <EmergencyFAB busy={sendingEmergency} onPress={openComposer} /> : null}
+    >
+      {routes}
       <EmergencyForm onClose={closeComposer} open={composerOpen} request={activeRequest} />
-
-      {showShell && !emergencyMode ? <BottomNav /> : null}
-    </div>
+    </AppLayout>
   );
 }
 
